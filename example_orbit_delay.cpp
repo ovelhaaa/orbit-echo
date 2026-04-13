@@ -14,7 +14,7 @@ int main() {
     constexpr uint32_t numSamples = 512;
 
     orbit::dsp::OrbitDelayCore fx;
-    if (!fx.attachBuffers(delayBufferL, MAX_DELAY_SAMPLES, delayBufferR, MAX_DELAY_SAMPLES)) {
+    if (!fx.attachBuffers(delayBufferL, delayBufferR, MAX_DELAY_SAMPLES)) {
         std::cerr << "Failed to attach delay buffers.\n";
         return 1;
     }
@@ -30,9 +30,9 @@ int main() {
 
     // Smear/diffuser: 0 estágio = bypass barato; mais estágios aumentam densidade e custo.
     fx.setDiffuserStages(3);
-    fx.setDiffusion(0.3f);
+    fx.setSmearAmount(0.3f);
 
-    fx.setLowpassCutoffHz(5500.0f);
+    fx.setToneHz(5500.0f);
     fx.setDcBlockEnabled(true);
 
     std::array<float, numSamples> inL{};

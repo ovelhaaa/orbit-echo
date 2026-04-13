@@ -8,7 +8,7 @@ extern "C" void app_main(void) {
     static float delayBufferR[kMaxDelaySamples] = {};
 
     orbit::dsp::OrbitDelayCore fx;
-    fx.attachBuffers(delayBufferL, kMaxDelaySamples, delayBufferR, kMaxDelaySamples);
+    fx.attachBuffers(delayBufferL, delayBufferR, kMaxDelaySamples);
     fx.reset(48000.0f);
     fx.setFeedback(0.45f);
     fx.setMix(0.35f);
