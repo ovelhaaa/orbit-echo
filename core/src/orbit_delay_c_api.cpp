@@ -166,14 +166,14 @@ bool orbit_set_dc_block_enabled(OrbitDelayHandle* handle, bool enabled) {
 }
 
 bool orbit_attach_buffers(OrbitDelayHandle* handle, float* delay_buffer_l, float* delay_buffer_r, uint32_t delay_size) {
-    if (handle == nullptr) {
+    if (handle == nullptr || delay_buffer_l == nullptr || delay_buffer_r == nullptr) {
         return false;
     }
     return handle->core.attachBuffers(delay_buffer_l, delay_buffer_r, delay_size);
 }
 
 bool orbit_attach_buffer_mono(OrbitDelayHandle* handle, float* delay_buffer, uint32_t delay_size) {
-    if (handle == nullptr) {
+    if (handle == nullptr || delay_buffer == nullptr) {
         return false;
     }
     return handle->core.attachBufferMono(delay_buffer, delay_size);

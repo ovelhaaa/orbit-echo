@@ -161,6 +161,10 @@ void OrbitDelayCore::reset(float sampleRate) {
 }
 
 bool OrbitDelayCore::attachBuffers(float* leftBuffer, float* rightBuffer, uint32_t size) {
+    if (rightBuffer == nullptr) {
+        initialized_ = false;
+        return false;
+    }
     return attachBuffersImpl(delayL_, delayR_, initialized_, leftBuffer, size, rightBuffer, size, kMinUsefulDelaySize);
 }
 
