@@ -11,7 +11,14 @@ extern "C" {
 typedef struct OrbitDelayHandle OrbitDelayHandle;
 
 /**
- * Cria/inicializa uma instância e anexa buffers de delay.
+ * Cria/inicializa uma instância em modo estéreo e anexa buffers de delay.
+ *
+ * Parâmetros obrigatórios:
+ * - delay_buffer_l e delay_buffer_r devem ser não nulos.
+ * - delay_size_l e delay_size_r devem ser válidos para o core interno.
+ *
+ * Os buffers são de propriedade do chamador e devem permanecer válidos por toda
+ * a vida útil do OrbitDelayHandle.
  *
  * Política de erro:
  * - Retorna NULL se qualquer ponteiro obrigatório for nulo, se tamanhos forem inválidos
@@ -24,7 +31,22 @@ OrbitDelayHandle* orbit_init(float sample_rate,
                              uint32_t delay_size_r);
 
 /**
- * Libera a instância criada por orbit_init.
+ * Cria/inicializa uma instância em modo mono.
+ *
+ * Parâmetros obrigatórios:
+ * - delay_buffer deve ser não nulo.
+ * - delay_size deve ser válido para o core interno.
+ *
+ * O buffer é de propriedade do chamador e deve permanecer válido por toda
+ * a vida útil do OrbitDelayHandle.
+ *
+ * Política de erro:
+ * - Retorna NULL em caso de ponteiro/tamanho inválido, falha de alocação ou attach.
+ */
+OrbitDelayHandle* orbit_init_mono(float sample_rate, float* delay_buffer, uint32_t delay_size);
+
+/**
+ * Libera a instância criada por orbit_init/orbit_init_mono.
  *
  * Política de erro:
  * - handle nulo: no-op.
@@ -57,6 +79,18 @@ bool orbit_set_lowpass_cutoff_hz(OrbitDelayHandle* handle, float value);
 bool orbit_set_diffusion(OrbitDelayHandle* handle, float value);
 bool orbit_set_diffuser_stages(OrbitDelayHandle* handle, uint32_t value);
 bool orbit_set_dc_block_enabled(OrbitDelayHandle* handle, bool enabled);
+
+/**
+ * Processamento em bloco mono.
+ *
+ * Política de erro:
+ * - handle nulo ou buffers inválidos: retorna false e não processa.
+ * - handle/buffers válidos: retorna true.
+ */
+bool orbit_process_mono(OrbitDelayHandle* handle,
+                        const float* input,
+                        float* output,
+                        uint32_t num_samples);
 
 /**
  * Processamento em bloco estéreo.

@@ -8,6 +8,14 @@ struct OrbitDelayHandle {
     orbit::dsp::OrbitDelayCore core;
 };
 
+namespace {
+
+OrbitDelayHandle* createHandle() {
+    return new (std::nothrow) OrbitDelayHandle();
+}
+
+} // namespace
+
 extern "C" {
 
 OrbitDelayHandle* orbit_init(float sample_rate,
@@ -15,16 +23,35 @@ OrbitDelayHandle* orbit_init(float sample_rate,
                              uint32_t delay_size_l,
                              float* delay_buffer_r,
                              uint32_t delay_size_r) {
-    if (delay_buffer_l == nullptr || delay_size_l == 0u) {
+    if (delay_buffer_l == nullptr || delay_buffer_r == nullptr || delay_size_l == 0u || delay_size_r == 0u) {
         return nullptr;
     }
 
-    OrbitDelayHandle* handle = new (std::nothrow) OrbitDelayHandle();
+    OrbitDelayHandle* handle = createHandle();
     if (handle == nullptr) {
         return nullptr;
     }
 
     if (!handle->core.attachBuffers(delay_buffer_l, delay_size_l, delay_buffer_r, delay_size_r)) {
+        delete handle;
+        return nullptr;
+    }
+
+    handle->core.reset(sample_rate);
+    return handle;
+}
+
+OrbitDelayHandle* orbit_init_mono(float sample_rate, float* delay_buffer, uint32_t delay_size) {
+    if (delay_buffer == nullptr || delay_size == 0u) {
+        return nullptr;
+    }
+
+    OrbitDelayHandle* handle = createHandle();
+    if (handle == nullptr) {
+        return nullptr;
+    }
+
+    if (!handle->core.attachBuffers(delay_buffer, delay_size, nullptr, 0u)) {
         delete handle;
         return nullptr;
     }
@@ -130,6 +157,18 @@ bool orbit_set_dc_block_enabled(OrbitDelayHandle* handle, bool enabled) {
         return false;
     }
     handle->core.setDcBlockEnabled(enabled);
+    return true;
+}
+
+bool orbit_process_mono(OrbitDelayHandle* handle,
+                        const float* input,
+                        float* output,
+                        uint32_t num_samples) {
+    if (handle == nullptr || input == nullptr || output == nullptr) {
+        return false;
+    }
+
+    handle->core.processMono(input, output, num_samples);
     return true;
 }
 
