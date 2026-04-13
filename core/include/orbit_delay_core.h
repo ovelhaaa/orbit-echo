@@ -2,9 +2,9 @@
 
 #include <cstdint>
 
-#include "dsp_delay_line.h"
-#include "dsp_diffuser.h"
-#include "dsp_filters.h"
+#include "core/include/dsp_delay_line.h"
+#include "core/include/dsp_diffuser.h"
+#include "core/include/dsp_filters.h"
 
 namespace orbit::dsp {
 

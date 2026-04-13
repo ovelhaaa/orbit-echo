@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "dsp_utils.h"
+#include "core/include/dsp_utils.h"
 
 namespace orbit::dsp {
 

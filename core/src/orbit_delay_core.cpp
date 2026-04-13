@@ -1,6 +1,6 @@
-#include "orbit_delay_core.h"
+#include "core/include/orbit_delay_core.h"
 
-#include "dsp_utils.h"
+#include "core/include/dsp_utils.h"
 
 namespace orbit::dsp {
 
