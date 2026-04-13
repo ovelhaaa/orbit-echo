@@ -4,29 +4,36 @@
 
 #include "orbit_delay_core.h"
 
+// Buffers externos estáticos (podem viver fora do objeto para integração embarcada/RT).
+constexpr uint32_t MAX_DELAY_SAMPLES = 48000;
+float delayBufferL[MAX_DELAY_SAMPLES];
+float delayBufferR[MAX_DELAY_SAMPLES];
+
 int main() {
     constexpr float sampleRate = 48000.0f;
-    constexpr uint32_t delayBufferSize = 48000;
     constexpr uint32_t numSamples = 512;
 
-    std::array<float, delayBufferSize> delayLeft{};
-    std::array<float, delayBufferSize> delayRight{};
-
-    orbit::dsp::OrbitDelayCore delay;
-    if (!delay.attachBuffers(delayLeft.data(), delayBufferSize, delayRight.data(), delayBufferSize)) {
+    orbit::dsp::OrbitDelayCore fx;
+    if (!fx.attachBuffers(delayBufferL, MAX_DELAY_SAMPLES, delayBufferR, MAX_DELAY_SAMPLES)) {
         std::cerr << "Failed to attach delay buffers.\n";
         return 1;
     }
-    delay.reset(sampleRate);
-    delay.setOrbit(0.73f);
-    delay.setOffsetSamples(7200.0f);
-    delay.setStereoSpread(32.0f);
-    delay.setFeedback(0.55f);
-    delay.setMix(0.4f);
-    delay.setDiffuserStages(3);
-    delay.setDiffusion(0.3f);
-    delay.setLowpassCutoffHz(5500.0f);
-    delay.setDcBlockEnabled(true);
+
+    // Default recomendado: float + interpolação linear (bom custo/qualidade e previsível em tempo real).
+    // Trade-off opcional: ORBIT_DELAY_ENABLE_HERMITE melhora suavidade/sub-sample com custo extra de CPU.
+    fx.reset(sampleRate);
+    fx.setOrbit(0.73f);
+    fx.setOffsetSamples(7200.0f);
+    fx.setStereoSpread(32.0f);
+    fx.setFeedback(0.55f);
+    fx.setMix(0.4f);
+
+    // Smear/diffuser: 0 estágio = bypass barato; mais estágios aumentam densidade e custo.
+    fx.setDiffuserStages(3);
+    fx.setDiffusion(0.3f);
+
+    fx.setLowpassCutoffHz(5500.0f);
+    fx.setDcBlockEnabled(true);
 
     std::array<float, numSamples> inL{};
     std::array<float, numSamples> inR{};
@@ -40,8 +47,11 @@ int main() {
         inR[i] = signal;
     }
 
-    delay.processStereo(inL.data(), inR.data(), outL.data(), outR.data(), numSamples);
+    // processSampleStereo: menor latência de controle por amostra, porém com maior overhead de chamada.
+    // processStereo (bloco): mesma DSP base com menor overhead total para buffers maiores.
+    fx.processStereo(inL.data(), inR.data(), outL.data(), outR.data(), numSamples);
 
+    // Pontos de extensão futura: cross-feedback L<->R, modulação de órbita/offset e seleção runtime de interpolação.
     std::cout << "Primeiras 8 amostras (L/R):\n";
     for (uint32_t i = 0; i < 8; ++i) {
         std::cout << i << ": " << outL[i] << " / " << outR[i] << '\n';
