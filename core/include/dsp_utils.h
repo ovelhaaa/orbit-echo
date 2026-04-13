@@ -37,9 +37,6 @@ inline float wrapPosFloat(float pos, float size) {
 }
 
 inline float wrapPosFloat(float pos, float size, float invSize) {
-    if (size <= 0.0f || invSize <= 0.0f) {
-        return 0.0f;
-    }
     const float wrapped = pos - size * std::floor(pos * invSize);
     return (wrapped >= size) ? (wrapped - size) : wrapped;
 }

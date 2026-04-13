@@ -102,7 +102,6 @@ private:
     bool lowpassDirty_ = true;
     bool diffuserDirty_ = true;
     bool smoothTargetsDirty_ = true;
-    uint32_t heavyParamCadenceCounter_ = 0u;
     uint32_t heavyParamCadenceCountdown_ = 1u;
     bool heavyParamCadenceHit_ = false;
     float appliedToneHz_ = 8000.0f;
