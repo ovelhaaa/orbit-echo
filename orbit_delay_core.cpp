@@ -4,8 +4,43 @@
 
 namespace orbit::dsp {
 
+float OrbitDelayCore::sanitizeFinite(float value, float fallback) {
+    return isFiniteSafe(value) ? value : fallback;
+}
+
+float OrbitDelayCore::dryPassThrough(float input) const {
+    return sanitizeFinite(input * outputGain_, 0.0f);
+}
+
+void OrbitDelayCore::syncDspParams() {
+    if (sampleRateDirty_) {
+        lowpassL_.setSampleRate(sampleRate_);
+        lowpassR_.setSampleRate(sampleRate_);
+        dcL_.setSampleRate(sampleRate_);
+        dcR_.setSampleRate(sampleRate_);
+        sampleRateDirty_ = false;
+        lowpassDirty_ = true;
+    }
+
+    if (lowpassDirty_) {
+        const float nyquistLimited = clampf(toneHz_, 300.0f, clampf(0.49f * sampleRate_, 300.0f, 12000.0f));
+        lowpassL_.setCutoffHz(nyquistLimited);
+        lowpassR_.setCutoffHz(nyquistLimited);
+        lowpassDirty_ = false;
+    }
+
+    if (diffuserDirty_) {
+        diffuserL_.setStageCount(diffuserStages_);
+        diffuserR_.setStageCount(diffuserStages_);
+        diffuserL_.setAmount(smear_);
+        diffuserR_.setAmount(smear_);
+        diffuserDirty_ = false;
+    }
+}
+
 void OrbitDelayCore::reset(float sampleRate) {
     setSampleRate(sampleRate);
+    syncDspParams();
     delayL_.clear();
     delayR_.clear();
     lowpassL_.reset();
@@ -17,7 +52,13 @@ void OrbitDelayCore::reset(float sampleRate) {
 }
 
 bool OrbitDelayCore::attachBuffers(float* leftBuffer, uint32_t leftSize, float* rightBuffer, uint32_t rightSize) {
-    if (rightBuffer != nullptr && rightSize <= 1u) {
+    if (leftBuffer == nullptr || leftSize < kMinUsefulDelaySize) {
+        initialized_ = false;
+        return false;
+    }
+
+    if (rightBuffer != nullptr && rightSize < kMinUsefulDelaySize) {
+        initialized_ = false;
         return false;
     }
 
@@ -31,58 +72,60 @@ bool OrbitDelayCore::attachBuffers(float* leftBuffer, uint32_t leftSize, float* 
         delayR_.writePos = 0;
     }
 
-    return leftOk && (!rightRequested || rightOk);
+    initialized_ = leftOk && (!rightRequested || rightOk);
+    return initialized_;
 }
 
 void OrbitDelayCore::setSampleRate(float sr) {
-    sampleRate_ = clampf(sr, 1.0f, 384000.0f);
-    lowpassL_.setSampleRate(sampleRate_);
-    lowpassR_.setSampleRate(sampleRate_);
-    dcL_.setSampleRate(sampleRate_);
-    dcR_.setSampleRate(sampleRate_);
+    const float sanitized = sanitizeFinite(sr, kFallbackSampleRate);
+    const float clamped = (sanitized <= 1.0f) ? kFallbackSampleRate : clampf(sanitized, 1.0f, 384000.0f);
+    if (sampleRate_ != clamped) {
+        sampleRate_ = clamped;
+        sampleRateDirty_ = true;
+    }
 }
 
 void OrbitDelayCore::setOrbit(float value) {
-    orbit_ = clampf(value, 0.0f, 1.0f);
+    orbit_ = clampf(sanitizeFinite(value, orbit_), 0.25f, 3.0f);
 }
 
 void OrbitDelayCore::setOffsetSamples(float value) {
-    offsetSamples_ = clampf(value, -200000.0f, 200000.0f);
+    offsetSamples_ = clampf(sanitizeFinite(value, offsetSamples_), -200000.0f, 200000.0f);
 }
 
 void OrbitDelayCore::setStereoSpread(float value) {
-    stereoSpread_ = clampf(value, -20000.0f, 20000.0f);
+    stereoSpread_ = clampf(sanitizeFinite(value, stereoSpread_), 0.0f, kStereoSpreadMax);
 }
 
 void OrbitDelayCore::setFeedback(float value) {
-    feedback_ = clampf(value, 0.0f, 0.995f);
+    feedback_ = clampf(sanitizeFinite(value, feedback_), 0.0f, 0.95f);
 }
 
 void OrbitDelayCore::setMix(float value) {
-    mix_ = clampf(value, 0.0f, 1.0f);
+    mix_ = clampf(sanitizeFinite(value, mix_), 0.0f, 1.0f);
 }
 
 void OrbitDelayCore::setInputGain(float value) {
-    inputGain_ = clampf(value, 0.0f, 4.0f);
+    inputGain_ = clampf(sanitizeFinite(value, inputGain_), 0.0f, 4.0f);
 }
 
 void OrbitDelayCore::setOutputGain(float value) {
-    outputGain_ = clampf(value, 0.0f, 4.0f);
+    outputGain_ = clampf(sanitizeFinite(value, outputGain_), 0.0f, 4.0f);
 }
 
 void OrbitDelayCore::setLowpassCutoffHz(float value) {
-    lowpassL_.setCutoffHz(value);
-    lowpassR_.setCutoffHz(value);
+    toneHz_ = clampf(sanitizeFinite(value, toneHz_), 300.0f, 12000.0f);
+    lowpassDirty_ = true;
 }
 
 void OrbitDelayCore::setDiffusion(float value) {
-    diffuserL_.setAmount(value);
-    diffuserR_.setAmount(value);
+    smear_ = clampf(sanitizeFinite(value, smear_), 0.0f, 1.0f);
+    diffuserDirty_ = true;
 }
 
 void OrbitDelayCore::setDiffuserStages(uint32_t count) {
-    diffuserL_.setStageCount(count);
-    diffuserR_.setStageCount(count);
+    diffuserStages_ = (count > AllpassDiffuser::kMaxStages) ? AllpassDiffuser::kMaxStages : count;
+    diffuserDirty_ = true;
 }
 
 void OrbitDelayCore::setDcBlockEnabled(bool enabled) {
@@ -90,9 +133,12 @@ void OrbitDelayCore::setDcBlockEnabled(bool enabled) {
 }
 
 float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser, float spread) {
-    if (delay.buffer == nullptr || delay.size < 2u) {
-        return input * outputGain_;
+    const float sanitizedInput = sanitizeFinite(input, 0.0f);
+    if (!initialized_ || delay.buffer == nullptr || delay.size < kMinUsefulDelaySize) {
+        return dryPassThrough(sanitizedInput);
     }
+
+    syncDspParams();
 
     float readPos = orbit_ * static_cast<float>(delay.writePos) + offsetSamples_ + spread;
     readPos = wrapPosFloat(readPos, static_cast<float>(delay.size));
@@ -121,7 +167,7 @@ float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpa
 
     const float fb = filteredWet * feedback_;
 
-    float toBuffer = input * inputGain_ + fb;
+    float toBuffer = sanitizedInput * inputGain_ + fb;
     if (!isFiniteSafe(toBuffer)) {
         toBuffer = 0.0f;
     }
@@ -136,7 +182,7 @@ float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpa
 
     delay.write(toBuffer);
 
-    const float out = (input * (1.0f - mix_) + wet * mix_) * outputGain_;
+    const float out = (sanitizedInput * (1.0f - mix_) + wet * mix_) * outputGain_;
     return isFiniteSafe(out) ? out : 0.0f;
 }
 
