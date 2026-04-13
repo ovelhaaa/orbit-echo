@@ -21,6 +21,9 @@ struct LinearSmoother {
     }
 
     void setTarget(float value) {
+        if (value == target) {
+            return;
+        }
         target = value;
         recalcStep();
     }

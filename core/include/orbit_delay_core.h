@@ -43,7 +43,7 @@ private:
     };
 
     void syncDspParams();
-    void updateSmoothedTargets();
+    void updateSmoothedTargetsIfDirty();
     SmoothedParams advanceSmoothers();
     void maybeApplyLowpassCutoff(float smoothedToneHz);
     void maybeApplyDiffuserAmount(float smoothedSmear);
@@ -90,6 +90,7 @@ private:
     bool sampleRateDirty_ = true;
     bool lowpassDirty_ = true;
     bool diffuserDirty_ = true;
+    bool smoothTargetsDirty_ = true;
     uint32_t heavyParamCadenceCounter_ = 0u;
     float appliedToneHz_ = 8000.0f;
     float appliedSmear_ = 0.0f;
