@@ -12,7 +12,8 @@ namespace orbit::dsp {
 class OrbitDelayCore {
 public:
     void reset(float sampleRate);
-    bool attachBuffers(float* leftBuffer, uint32_t leftSize, float* rightBuffer = nullptr, uint32_t rightSize = 0);
+    bool attachBuffers(float* leftBuffer, float* rightBuffer, uint32_t size);
+    bool attachBufferMono(float* buffer, uint32_t size);
 
     void setSampleRate(float sr);
     void setOrbit(float value);
@@ -22,10 +23,17 @@ public:
     void setMix(float value);
     void setInputGain(float value);
     void setOutputGain(float value);
-    void setLowpassCutoffHz(float value);
-    void setDiffusion(float value);
+    void setToneHz(float value);
+    void setSmearAmount(float value);
     void setDiffuserStages(uint32_t count);
     void setDcBlockEnabled(bool enabled);
+
+    [[deprecated("Use attachBuffers(left, right, size) or attachBufferMono(buffer, size)")]]
+    bool attachBuffers(float* leftBuffer, uint32_t leftSize, float* rightBuffer, uint32_t rightSize);
+    [[deprecated("Use setToneHz(value)")]]
+    void setLowpassCutoffHz(float value);
+    [[deprecated("Use setSmearAmount(value)")]]
+    void setDiffusion(float value);
 
     float processSampleMono(float input);
     void processSampleStereo(float inL, float inR, float& outL, float& outR);

@@ -75,10 +75,20 @@ bool orbit_set_feedback(OrbitDelayHandle* handle, float value);
 bool orbit_set_mix(OrbitDelayHandle* handle, float value);
 bool orbit_set_input_gain(OrbitDelayHandle* handle, float value);
 bool orbit_set_output_gain(OrbitDelayHandle* handle, float value);
-bool orbit_set_lowpass_cutoff_hz(OrbitDelayHandle* handle, float value);
-bool orbit_set_diffusion(OrbitDelayHandle* handle, float value);
+bool orbit_set_tone_hz(OrbitDelayHandle* handle, float value);
+bool orbit_set_smear_amount(OrbitDelayHandle* handle, float value);
 bool orbit_set_diffuser_stages(OrbitDelayHandle* handle, uint32_t value);
 bool orbit_set_dc_block_enabled(OrbitDelayHandle* handle, bool enabled);
+
+/** Reanexa buffers estéreo com semântica canônica (L, R, size compartilhado). */
+bool orbit_attach_buffers(OrbitDelayHandle* handle, float* delay_buffer_l, float* delay_buffer_r, uint32_t delay_size);
+/** Reanexa buffer mono com semântica canônica. */
+bool orbit_attach_buffer_mono(OrbitDelayHandle* handle, float* delay_buffer, uint32_t delay_size);
+
+/** Alias legado temporário. */
+bool orbit_set_lowpass_cutoff_hz(OrbitDelayHandle* handle, float value);
+/** Alias legado temporário. */
+bool orbit_set_diffusion(OrbitDelayHandle* handle, float value);
 
 /**
  * Processamento em bloco mono.

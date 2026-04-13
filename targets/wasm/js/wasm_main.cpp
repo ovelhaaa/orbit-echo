@@ -14,6 +14,8 @@ int main() {
 
     orbit_set_feedback(fx, 0.4f);
     orbit_set_mix(fx, 0.35f);
+    orbit_set_tone_hz(fx, 6500.0f);
+    orbit_set_smear_amount(fx, 0.25f);
 
     const float inL[1] = {0.0f};
     const float inR[1] = {0.0f};

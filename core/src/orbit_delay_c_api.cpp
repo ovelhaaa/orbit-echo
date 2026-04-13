@@ -32,7 +32,12 @@ OrbitDelayHandle* orbit_init(float sample_rate,
         return nullptr;
     }
 
-    if (!handle->core.attachBuffers(delay_buffer_l, delay_size_l, delay_buffer_r, delay_size_r)) {
+    if (delay_size_l != delay_size_r) {
+        delete handle;
+        return nullptr;
+    }
+
+    if (!handle->core.attachBuffers(delay_buffer_l, delay_buffer_r, delay_size_l)) {
         delete handle;
         return nullptr;
     }
@@ -51,7 +56,7 @@ OrbitDelayHandle* orbit_init_mono(float sample_rate, float* delay_buffer, uint32
         return nullptr;
     }
 
-    if (!handle->core.attachBuffers(delay_buffer, delay_size, nullptr, 0u)) {
+    if (!handle->core.attachBufferMono(delay_buffer, delay_size)) {
         delete handle;
         return nullptr;
     }
@@ -128,19 +133,19 @@ bool orbit_set_output_gain(OrbitDelayHandle* handle, float value) {
     return true;
 }
 
-bool orbit_set_lowpass_cutoff_hz(OrbitDelayHandle* handle, float value) {
+bool orbit_set_tone_hz(OrbitDelayHandle* handle, float value) {
     if (handle == nullptr) {
         return false;
     }
-    handle->core.setLowpassCutoffHz(value);
+    handle->core.setToneHz(value);
     return true;
 }
 
-bool orbit_set_diffusion(OrbitDelayHandle* handle, float value) {
+bool orbit_set_smear_amount(OrbitDelayHandle* handle, float value) {
     if (handle == nullptr) {
         return false;
     }
-    handle->core.setDiffusion(value);
+    handle->core.setSmearAmount(value);
     return true;
 }
 
@@ -158,6 +163,28 @@ bool orbit_set_dc_block_enabled(OrbitDelayHandle* handle, bool enabled) {
     }
     handle->core.setDcBlockEnabled(enabled);
     return true;
+}
+
+bool orbit_attach_buffers(OrbitDelayHandle* handle, float* delay_buffer_l, float* delay_buffer_r, uint32_t delay_size) {
+    if (handle == nullptr) {
+        return false;
+    }
+    return handle->core.attachBuffers(delay_buffer_l, delay_buffer_r, delay_size);
+}
+
+bool orbit_attach_buffer_mono(OrbitDelayHandle* handle, float* delay_buffer, uint32_t delay_size) {
+    if (handle == nullptr) {
+        return false;
+    }
+    return handle->core.attachBufferMono(delay_buffer, delay_size);
+}
+
+bool orbit_set_lowpass_cutoff_hz(OrbitDelayHandle* handle, float value) {
+    return orbit_set_tone_hz(handle, value);
+}
+
+bool orbit_set_diffusion(OrbitDelayHandle* handle, float value) {
+    return orbit_set_smear_amount(handle, value);
 }
 
 bool orbit_process_mono(OrbitDelayHandle* handle,

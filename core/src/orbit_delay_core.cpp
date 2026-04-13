@@ -6,6 +6,40 @@
 
 namespace orbit::dsp {
 
+namespace {
+bool attachBuffersImpl(DelayLine& delayL,
+                       DelayLine& delayR,
+                       bool& initialized,
+                       float* leftBuffer,
+                       uint32_t leftSize,
+                       float* rightBuffer,
+                       uint32_t rightSize,
+                       uint32_t minUsefulDelaySize) {
+    if (leftBuffer == nullptr || leftSize < minUsefulDelaySize) {
+        initialized = false;
+        return false;
+    }
+
+    if (rightBuffer != nullptr && rightSize < minUsefulDelaySize) {
+        initialized = false;
+        return false;
+    }
+
+    const bool leftOk = delayL.attach(leftBuffer, leftSize);
+    const bool rightRequested = (rightBuffer != nullptr);
+    const bool rightOk = rightRequested ? delayR.attach(rightBuffer, rightSize) : false;
+
+    if (!rightRequested) {
+        delayR.buffer = nullptr;
+        delayR.size = 0;
+        delayR.writePos = 0;
+    }
+
+    initialized = leftOk && (!rightRequested || rightOk);
+    return initialized;
+}
+} // namespace
+
 float OrbitDelayCore::sanitizeFinite(float value, float fallback) {
     return isFiniteSafe(value) ? value : fallback;
 }
@@ -126,29 +160,16 @@ void OrbitDelayCore::reset(float sampleRate) {
     diffuserR_.reset();
 }
 
+bool OrbitDelayCore::attachBuffers(float* leftBuffer, float* rightBuffer, uint32_t size) {
+    return attachBuffersImpl(delayL_, delayR_, initialized_, leftBuffer, size, rightBuffer, size, kMinUsefulDelaySize);
+}
+
+bool OrbitDelayCore::attachBufferMono(float* buffer, uint32_t size) {
+    return attachBuffersImpl(delayL_, delayR_, initialized_, buffer, size, nullptr, 0u, kMinUsefulDelaySize);
+}
+
 bool OrbitDelayCore::attachBuffers(float* leftBuffer, uint32_t leftSize, float* rightBuffer, uint32_t rightSize) {
-    if (leftBuffer == nullptr || leftSize < kMinUsefulDelaySize) {
-        initialized_ = false;
-        return false;
-    }
-
-    if (rightBuffer != nullptr && rightSize < kMinUsefulDelaySize) {
-        initialized_ = false;
-        return false;
-    }
-
-    const bool leftOk = delayL_.attach(leftBuffer, leftSize);
-    const bool rightRequested = (rightBuffer != nullptr);
-    const bool rightOk = rightRequested ? delayR_.attach(rightBuffer, rightSize) : false;
-
-    if (!rightRequested) {
-        delayR_.buffer = nullptr;
-        delayR_.size = 0;
-        delayR_.writePos = 0;
-    }
-
-    initialized_ = leftOk && (!rightRequested || rightOk);
-    return initialized_;
+    return attachBuffersImpl(delayL_, delayR_, initialized_, leftBuffer, leftSize, rightBuffer, rightSize, kMinUsefulDelaySize);
 }
 
 void OrbitDelayCore::setSampleRate(float sr) {
@@ -193,14 +214,22 @@ void OrbitDelayCore::setOutputGain(float value) {
     outputGain_ = clampf(sanitizeFinite(value, outputGain_), 0.0f, 4.0f);
 }
 
-void OrbitDelayCore::setLowpassCutoffHz(float value) {
+void OrbitDelayCore::setToneHz(float value) {
     toneHz_ = clampf(sanitizeFinite(value, toneHz_), 300.0f, 12000.0f);
     smoothTargetsDirty_ = true;
 }
 
-void OrbitDelayCore::setDiffusion(float value) {
+void OrbitDelayCore::setSmearAmount(float value) {
     smear_ = clampf(sanitizeFinite(value, smear_), 0.0f, 1.0f);
     smoothTargetsDirty_ = true;
+}
+
+void OrbitDelayCore::setLowpassCutoffHz(float value) {
+    setToneHz(value);
+}
+
+void OrbitDelayCore::setDiffusion(float value) {
+    setSmearAmount(value);
 }
 
 void OrbitDelayCore::setDiffuserStages(uint32_t count) {
