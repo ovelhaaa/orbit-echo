@@ -5,6 +5,7 @@
 #include "core/include/dsp_delay_line.h"
 #include "core/include/dsp_diffuser.h"
 #include "core/include/dsp_filters.h"
+#include "core/include/dsp_smoother.h"
 
 namespace orbit::dsp {
 
@@ -33,15 +34,44 @@ public:
     void processStereo(const float* inputL, const float* inputR, float* outputL, float* outputR, uint32_t numSamples);
 
 private:
+    struct SmoothedParams {
+        float orbit = 0.5f;
+        float offsetSamples = 1200.0f;
+        float stereoSpread = 0.0f;
+        float feedback = 0.35f;
+        float mix = 0.35f;
+    };
+
     void syncDspParams();
+    void updateSmoothedTargetsIfDirty();
+    SmoothedParams advanceSmoothers();
+    void maybeApplyLowpassCutoff(float smoothedToneHz);
+    void maybeApplyDiffuserAmount(float smoothedSmear);
     static float sanitizeFinite(float value, float fallback);
     float dryPassThrough(float input) const;
 
     static constexpr float kFallbackSampleRate = 48000.0f;
     static constexpr uint32_t kMinUsefulDelaySize = 4u;
     static constexpr float kStereoSpreadMax = 20000.0f;
+    static constexpr uint32_t kHeavyParamCadenceSamples = 16u;
+    static constexpr float kLowpassUpdateDeltaHz = 20.0f;
+    static constexpr float kDiffuserUpdateDelta = 0.01f;
 
-    float processChannel(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser, float spread);
+    // Default smoothing times tuned for MCU targets:
+    // - core modulation params: 8-35 ms (zipper-noise suppression with low CPU).
+    // - tone/smear controls: 35-50 ms (less frequent expensive coefficient updates).
+    // CPU guideline for MCU use: keep cadence at >=16 samples and avoid >7 smoothers
+    // with per-sample transcendental math in the hot path.
+    static constexpr float kSmoothMixMs = 20.0f;
+    static constexpr float kSmoothFeedbackMs = 20.0f;
+    static constexpr float kSmoothToneMs = 50.0f;
+    static constexpr float kSmoothOrbitMs = 35.0f;
+    static constexpr float kSmoothOffsetMs = 25.0f;
+    static constexpr float kSmoothSmearMs = 35.0f;
+    static constexpr float kSmoothStereoSpreadMs = 8.0f;
+
+    float processChannel(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
+                         const SmoothedParams& params, float spread);
 
     float sampleRate_ = kFallbackSampleRate;
     float orbit_ = 0.5f;
@@ -60,6 +90,18 @@ private:
     bool sampleRateDirty_ = true;
     bool lowpassDirty_ = true;
     bool diffuserDirty_ = true;
+    bool smoothTargetsDirty_ = true;
+    uint32_t heavyParamCadenceCounter_ = 0u;
+    float appliedToneHz_ = 8000.0f;
+    float appliedSmear_ = 0.0f;
+
+    LinearSmoother mixSm_;
+    LinearSmoother feedbackSm_;
+    LinearSmoother toneSm_;
+    LinearSmoother orbitSm_;
+    LinearSmoother offsetSm_;
+    LinearSmoother smearSm_;
+    LinearSmoother stereoSpreadSm_;
 
     DelayLine delayL_;
     DelayLine delayR_;

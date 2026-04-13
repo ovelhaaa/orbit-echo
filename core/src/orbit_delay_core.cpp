@@ -1,5 +1,7 @@
 #include "core/include/orbit_delay_core.h"
 
+#include <cmath>
+
 #include "core/include/dsp_utils.h"
 
 namespace orbit::dsp {
@@ -18,6 +20,13 @@ void OrbitDelayCore::syncDspParams() {
         lowpassR_.setSampleRate(sampleRate_);
         dcL_.setSampleRate(sampleRate_);
         dcR_.setSampleRate(sampleRate_);
+        mixSm_.configure(sampleRate_, kSmoothMixMs);
+        feedbackSm_.configure(sampleRate_, kSmoothFeedbackMs);
+        toneSm_.configure(sampleRate_, kSmoothToneMs);
+        orbitSm_.configure(sampleRate_, kSmoothOrbitMs);
+        offsetSm_.configure(sampleRate_, kSmoothOffsetMs);
+        smearSm_.configure(sampleRate_, kSmoothSmearMs);
+        stereoSpreadSm_.configure(sampleRate_, kSmoothStereoSpreadMs);
         sampleRateDirty_ = false;
         lowpassDirty_ = true;
     }
@@ -32,8 +41,63 @@ void OrbitDelayCore::syncDspParams() {
     if (diffuserDirty_) {
         diffuserL_.setStageCount(diffuserStages_);
         diffuserR_.setStageCount(diffuserStages_);
-        diffuserL_.setAmount(smear_);
-        diffuserR_.setAmount(smear_);
+        appliedSmear_ = smearSm_.current;
+        diffuserL_.setAmount(appliedSmear_);
+        diffuserR_.setAmount(appliedSmear_);
+        diffuserDirty_ = false;
+    }
+}
+
+void OrbitDelayCore::updateSmoothedTargetsIfDirty() {
+    if (!smoothTargetsDirty_) {
+        return;
+    }
+    orbitSm_.setTarget(orbit_);
+    offsetSm_.setTarget(offsetSamples_);
+    stereoSpreadSm_.setTarget(stereoSpread_);
+    feedbackSm_.setTarget(feedback_);
+    mixSm_.setTarget(mix_);
+    toneSm_.setTarget(toneHz_);
+    smearSm_.setTarget(smear_);
+    smoothTargetsDirty_ = false;
+}
+
+OrbitDelayCore::SmoothedParams OrbitDelayCore::advanceSmoothers() {
+    SmoothedParams params;
+    params.orbit = orbitSm_.next();
+    params.offsetSamples = offsetSm_.next();
+    params.stereoSpread = stereoSpreadSm_.next();
+    params.feedback = feedbackSm_.next();
+    params.mix = mixSm_.next();
+
+    const float smoothedToneHz = toneSm_.next();
+    const float smoothedSmear = smearSm_.next();
+
+    maybeApplyLowpassCutoff(smoothedToneHz);
+    maybeApplyDiffuserAmount(smoothedSmear);
+    return params;
+}
+
+void OrbitDelayCore::maybeApplyLowpassCutoff(float smoothedToneHz) {
+    const float clampedToneHz = clampf(smoothedToneHz, 300.0f, clampf(0.49f * sampleRate_, 300.0f, 12000.0f));
+    const float delta = std::fabs(clampedToneHz - appliedToneHz_);
+    const bool cadenceHit = (heavyParamCadenceCounter_ % kHeavyParamCadenceSamples) == 0u;
+    if (lowpassDirty_ || cadenceHit || delta >= kLowpassUpdateDeltaHz) {
+        lowpassL_.setCutoffHz(clampedToneHz);
+        lowpassR_.setCutoffHz(clampedToneHz);
+        appliedToneHz_ = clampedToneHz;
+        lowpassDirty_ = false;
+    }
+}
+
+void OrbitDelayCore::maybeApplyDiffuserAmount(float smoothedSmear) {
+    const float delta = std::fabs(smoothedSmear - appliedSmear_);
+    const bool cadenceHit = (heavyParamCadenceCounter_ % kHeavyParamCadenceSamples) == 0u;
+    if (diffuserDirty_ || cadenceHit || delta >= kDiffuserUpdateDelta) {
+        const float clamped = clampf(smoothedSmear, 0.0f, 1.0f);
+        diffuserL_.setAmount(clamped);
+        diffuserR_.setAmount(clamped);
+        appliedSmear_ = clamped;
         diffuserDirty_ = false;
     }
 }
@@ -41,6 +105,17 @@ void OrbitDelayCore::syncDspParams() {
 void OrbitDelayCore::reset(float sampleRate) {
     setSampleRate(sampleRate);
     syncDspParams();
+    orbitSm_.reset(orbit_);
+    offsetSm_.reset(offsetSamples_);
+    stereoSpreadSm_.reset(stereoSpread_);
+    feedbackSm_.reset(feedback_);
+    mixSm_.reset(mix_);
+    toneSm_.reset(toneHz_);
+    smearSm_.reset(smear_);
+    appliedToneHz_ = toneHz_;
+    appliedSmear_ = smear_;
+    heavyParamCadenceCounter_ = 0u;
+    smoothTargetsDirty_ = false;
     delayL_.clear();
     delayR_.clear();
     lowpassL_.reset();
@@ -87,22 +162,27 @@ void OrbitDelayCore::setSampleRate(float sr) {
 
 void OrbitDelayCore::setOrbit(float value) {
     orbit_ = clampf(sanitizeFinite(value, orbit_), 0.25f, 3.0f);
+    smoothTargetsDirty_ = true;
 }
 
 void OrbitDelayCore::setOffsetSamples(float value) {
     offsetSamples_ = clampf(sanitizeFinite(value, offsetSamples_), -200000.0f, 200000.0f);
+    smoothTargetsDirty_ = true;
 }
 
 void OrbitDelayCore::setStereoSpread(float value) {
     stereoSpread_ = clampf(sanitizeFinite(value, stereoSpread_), 0.0f, kStereoSpreadMax);
+    smoothTargetsDirty_ = true;
 }
 
 void OrbitDelayCore::setFeedback(float value) {
     feedback_ = clampf(sanitizeFinite(value, feedback_), 0.0f, 0.95f);
+    smoothTargetsDirty_ = true;
 }
 
 void OrbitDelayCore::setMix(float value) {
     mix_ = clampf(sanitizeFinite(value, mix_), 0.0f, 1.0f);
+    smoothTargetsDirty_ = true;
 }
 
 void OrbitDelayCore::setInputGain(float value) {
@@ -115,12 +195,12 @@ void OrbitDelayCore::setOutputGain(float value) {
 
 void OrbitDelayCore::setLowpassCutoffHz(float value) {
     toneHz_ = clampf(sanitizeFinite(value, toneHz_), 300.0f, 12000.0f);
-    lowpassDirty_ = true;
+    smoothTargetsDirty_ = true;
 }
 
 void OrbitDelayCore::setDiffusion(float value) {
     smear_ = clampf(sanitizeFinite(value, smear_), 0.0f, 1.0f);
-    diffuserDirty_ = true;
+    smoothTargetsDirty_ = true;
 }
 
 void OrbitDelayCore::setDiffuserStages(uint32_t count) {
@@ -132,15 +212,14 @@ void OrbitDelayCore::setDcBlockEnabled(bool enabled) {
     dcBlockEnabled_ = enabled;
 }
 
-float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser, float spread) {
+float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
+                                     const SmoothedParams& params, float spread) {
     const float sanitizedInput = sanitizeFinite(input, 0.0f);
     if (!initialized_ || delay.buffer == nullptr || delay.size < kMinUsefulDelaySize) {
         return dryPassThrough(sanitizedInput);
     }
 
-    syncDspParams();
-
-    float readPos = orbit_ * static_cast<float>(delay.writePos) + offsetSamples_ + spread;
+    float readPos = params.orbit * static_cast<float>(delay.writePos) + params.offsetSamples + spread;
     readPos = wrapPosFloat(readPos, static_cast<float>(delay.size));
 
 #if defined(ORBIT_DELAY_ENABLE_HERMITE)
@@ -165,7 +244,7 @@ float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpa
         filteredWet = 0.0f;
     }
 
-    const float fb = filteredWet * feedback_;
+    const float fb = filteredWet * params.feedback;
 
     float toBuffer = sanitizedInput * inputGain_ + fb;
     if (!isFiniteSafe(toBuffer)) {
@@ -182,17 +261,25 @@ float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpa
 
     delay.write(toBuffer);
 
-    const float out = (sanitizedInput * (1.0f - mix_) + wet * mix_) * outputGain_;
+    const float out = (sanitizedInput * (1.0f - params.mix) + wet * params.mix) * outputGain_;
     return isFiniteSafe(out) ? out : 0.0f;
 }
 
 float OrbitDelayCore::processSampleMono(float input) {
-    return processChannel(input, delayL_, lowpassL_, dcL_, diffuserL_, 0.0f);
+    syncDspParams();
+    updateSmoothedTargetsIfDirty();
+    const SmoothedParams params = advanceSmoothers();
+    ++heavyParamCadenceCounter_;
+    return processChannel(input, delayL_, lowpassL_, dcL_, diffuserL_, params, 0.0f);
 }
 
 void OrbitDelayCore::processSampleStereo(float inL, float inR, float& outL, float& outR) {
-    outL = processChannel(inL, delayL_, lowpassL_, dcL_, diffuserL_, -stereoSpread_);
-    outR = processChannel(inR, delayR_, lowpassR_, dcR_, diffuserR_, stereoSpread_);
+    syncDspParams();
+    updateSmoothedTargetsIfDirty();
+    const SmoothedParams params = advanceSmoothers();
+    ++heavyParamCadenceCounter_;
+    outL = processChannel(inL, delayL_, lowpassL_, dcL_, diffuserL_, params, -params.stereoSpread);
+    outR = processChannel(inR, delayR_, lowpassR_, dcR_, diffuserR_, params, params.stereoSpread);
 }
 
 void OrbitDelayCore::processMono(const float* input, float* output, uint32_t numSamples) {
@@ -200,8 +287,12 @@ void OrbitDelayCore::processMono(const float* input, float* output, uint32_t num
         return;
     }
 
+    syncDspParams();
+    updateSmoothedTargetsIfDirty();
     for (uint32_t i = 0; i < numSamples; ++i) {
-        output[i] = processSampleMono(input[i]);
+        const SmoothedParams params = advanceSmoothers();
+        ++heavyParamCadenceCounter_;
+        output[i] = processChannel(input[i], delayL_, lowpassL_, dcL_, diffuserL_, params, 0.0f);
     }
 }
 
@@ -210,8 +301,13 @@ void OrbitDelayCore::processStereo(const float* inputL, const float* inputR, flo
         return;
     }
 
+    syncDspParams();
+    updateSmoothedTargetsIfDirty();
     for (uint32_t i = 0; i < numSamples; ++i) {
-        processSampleStereo(inputL[i], inputR[i], outputL[i], outputR[i]);
+        const SmoothedParams params = advanceSmoothers();
+        ++heavyParamCadenceCounter_;
+        outputL[i] = processChannel(inputL[i], delayL_, lowpassL_, dcL_, diffuserL_, params, -params.stereoSpread);
+        outputR[i] = processChannel(inputR[i], delayR_, lowpassR_, dcR_, diffuserR_, params, params.stereoSpread);
     }
 }
 
