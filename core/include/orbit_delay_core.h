@@ -80,6 +80,9 @@ private:
 
     float processChannel(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
                          const SmoothedParams& params, float spread);
+    float processChannelFast(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
+                             const SmoothedParams& params, float spread, float delaySize, float invDelaySize);
+    bool advanceCadence();
 
     float sampleRate_ = kFallbackSampleRate;
     float orbit_ = 0.5f;
@@ -100,6 +103,8 @@ private:
     bool diffuserDirty_ = true;
     bool smoothTargetsDirty_ = true;
     uint32_t heavyParamCadenceCounter_ = 0u;
+    uint32_t heavyParamCadenceCountdown_ = 1u;
+    bool heavyParamCadenceHit_ = false;
     float appliedToneHz_ = 8000.0f;
     float appliedSmear_ = 0.0f;
 

@@ -1,6 +1,9 @@
 #include <array>
 #include <cmath>
+#include <chrono>
+#include <iomanip>
 #include <iostream>
+#include <vector>
 
 #include "core/include/orbit_delay_core.h"
 
@@ -56,6 +59,35 @@ int main() {
     for (uint32_t i = 0; i < 8; ++i) {
         std::cout << i << ": " << outL[i] << " / " << outR[i] << '\n';
     }
+
+    auto runBlockBenchmark = [&](uint32_t blockSize, uint32_t iterations) {
+        std::vector<float> benchInL(blockSize);
+        std::vector<float> benchInR(blockSize);
+        std::vector<float> benchOutL(blockSize);
+        std::vector<float> benchOutR(blockSize);
+
+        for (uint32_t i = 0; i < blockSize; ++i) {
+            const float phase = static_cast<float>(i) / sampleRate;
+            const float signal = std::sin(2.0f * orbit::dsp::kPi * 220.0f * phase);
+            benchInL[i] = signal;
+            benchInR[i] = signal;
+        }
+
+        const auto t0 = std::chrono::high_resolution_clock::now();
+        for (uint32_t it = 0; it < iterations; ++it) {
+            fx.processStereo(benchInL.data(), benchInR.data(), benchOutL.data(), benchOutR.data(), blockSize);
+        }
+        const auto t1 = std::chrono::high_resolution_clock::now();
+        const auto elapsedNs = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+        const double nsPerSample = static_cast<double>(elapsedNs) / static_cast<double>(iterations * blockSize * 2u);
+        std::cout << "Benchmark bloco " << std::setw(2) << blockSize << ": " << std::fixed << std::setprecision(2) << nsPerSample
+                  << " ns/amostra (stereo)\n";
+    };
+
+    std::cout << "\nBenchmark simples por bloco:\n";
+    runBlockBenchmark(16u, 3000u);
+    runBlockBenchmark(32u, 3000u);
+    runBlockBenchmark(64u, 3000u);
 
     return 0;
 }

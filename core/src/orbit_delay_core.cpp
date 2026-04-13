@@ -106,17 +106,26 @@ OrbitDelayCore::SmoothedParams OrbitDelayCore::advanceSmoothers() {
 
     const float smoothedToneHz = toneSm_.next();
     const float smoothedSmear = smearSm_.next();
+    heavyParamCadenceHit_ = advanceCadence();
 
     maybeApplyLowpassCutoff(smoothedToneHz);
     maybeApplyDiffuserAmount(smoothedSmear);
     return params;
 }
 
+bool OrbitDelayCore::advanceCadence() {
+    if (heavyParamCadenceCountdown_ <= 1u) {
+        heavyParamCadenceCountdown_ = kHeavyParamCadenceSamples;
+        return true;
+    }
+    --heavyParamCadenceCountdown_;
+    return false;
+}
+
 void OrbitDelayCore::maybeApplyLowpassCutoff(float smoothedToneHz) {
     const float clampedToneHz = clampf(smoothedToneHz, 300.0f, clampf(0.49f * sampleRate_, 300.0f, 12000.0f));
     const float delta = std::fabs(clampedToneHz - appliedToneHz_);
-    const bool cadenceHit = (heavyParamCadenceCounter_ % kHeavyParamCadenceSamples) == 0u;
-    if (lowpassDirty_ || cadenceHit || delta >= kLowpassUpdateDeltaHz) {
+    if (lowpassDirty_ || heavyParamCadenceHit_ || delta >= kLowpassUpdateDeltaHz) {
         lowpassL_.setCutoffHz(clampedToneHz);
         lowpassR_.setCutoffHz(clampedToneHz);
         appliedToneHz_ = clampedToneHz;
@@ -126,8 +135,7 @@ void OrbitDelayCore::maybeApplyLowpassCutoff(float smoothedToneHz) {
 
 void OrbitDelayCore::maybeApplyDiffuserAmount(float smoothedSmear) {
     const float delta = std::fabs(smoothedSmear - appliedSmear_);
-    const bool cadenceHit = (heavyParamCadenceCounter_ % kHeavyParamCadenceSamples) == 0u;
-    if (diffuserDirty_ || cadenceHit || delta >= kDiffuserUpdateDelta) {
+    if (diffuserDirty_ || heavyParamCadenceHit_ || delta >= kDiffuserUpdateDelta) {
         const float clamped = clampf(smoothedSmear, 0.0f, 1.0f);
         diffuserL_.setAmount(clamped);
         diffuserR_.setAmount(clamped);
@@ -149,6 +157,8 @@ void OrbitDelayCore::reset(float sampleRate) {
     appliedToneHz_ = toneHz_;
     appliedSmear_ = smear_;
     heavyParamCadenceCounter_ = 0u;
+    heavyParamCadenceCountdown_ = 1u;
+    heavyParamCadenceHit_ = false;
     smoothTargetsDirty_ = false;
     delayL_.clear();
     delayR_.clear();
@@ -245,20 +255,16 @@ void OrbitDelayCore::setDcBlockEnabled(bool enabled) {
     dcBlockEnabled_ = enabled;
 }
 
-float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
-                                     const SmoothedParams& params, float spread) {
-    const float sanitizedInput = sanitizeFinite(input, 0.0f);
-    if (!initialized_ || delay.buffer == nullptr || delay.size < kMinUsefulDelaySize) {
-        return dryPassThrough(sanitizedInput);
-    }
-
+float OrbitDelayCore::processChannelFast(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
+                                         const SmoothedParams& params, float spread, float delaySize, float invDelaySize) {
+    const float sanitizedInput = input;
     float readPos = params.orbit * static_cast<float>(delay.writePos) + params.offsetSamples + spread;
-    readPos = wrapPosFloat(readPos, static_cast<float>(delay.size));
+    readPos = wrapPosFloat(readPos, delaySize, invDelaySize);
 
 #if defined(ORBIT_DELAY_ENABLE_HERMITE)
-    float wet = delay.readAbsoluteHermite(readPos);
+    float wet = delay.readAbsoluteHermiteWrapped(readPos);
 #else
-    float wet = delay.readAbsoluteLinear(readPos);
+    float wet = delay.readAbsoluteLinearWrapped(readPos);
 #endif
 
     if (!isFiniteSafe(wet)) {
@@ -298,6 +304,18 @@ float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpa
     return isFiniteSafe(out) ? out : 0.0f;
 }
 
+float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
+                                     const SmoothedParams& params, float spread) {
+    const float sanitizedInput = sanitizeFinite(input, 0.0f);
+    if (!initialized_ || delay.buffer == nullptr || delay.size < kMinUsefulDelaySize) {
+        return dryPassThrough(sanitizedInput);
+    }
+
+    const float delaySize = static_cast<float>(delay.size);
+    const float invDelaySize = 1.0f / delaySize;
+    return processChannelFast(sanitizedInput, delay, lp, dc, diffuser, params, spread, delaySize, invDelaySize);
+}
+
 float OrbitDelayCore::processSampleMono(float input) {
     syncDspParams();
     updateSmoothedTargetsIfDirty();
@@ -322,10 +340,15 @@ void OrbitDelayCore::processMono(const float* input, float* output, uint32_t num
 
     syncDspParams();
     updateSmoothedTargetsIfDirty();
+    const bool canProcess = initialized_ && delayL_.buffer != nullptr && delayL_.size >= kMinUsefulDelaySize;
+    const float delaySize = static_cast<float>(delayL_.size);
+    const float invDelaySize = canProcess ? (1.0f / delaySize) : 0.0f;
     for (uint32_t i = 0; i < numSamples; ++i) {
         const SmoothedParams params = advanceSmoothers();
         ++heavyParamCadenceCounter_;
-        output[i] = processChannel(input[i], delayL_, lowpassL_, dcL_, diffuserL_, params, 0.0f);
+        const float sanitizedInput = sanitizeFinite(input[i], 0.0f);
+        output[i] = canProcess ? processChannelFast(sanitizedInput, delayL_, lowpassL_, dcL_, diffuserL_, params, 0.0f, delaySize, invDelaySize)
+                               : dryPassThrough(sanitizedInput);
     }
 }
 
@@ -336,11 +359,23 @@ void OrbitDelayCore::processStereo(const float* inputL, const float* inputR, flo
 
     syncDspParams();
     updateSmoothedTargetsIfDirty();
+    const bool canProcessL = initialized_ && delayL_.buffer != nullptr && delayL_.size >= kMinUsefulDelaySize;
+    const bool canProcessR = initialized_ && delayR_.buffer != nullptr && delayR_.size >= kMinUsefulDelaySize;
+    const float delaySizeL = static_cast<float>(delayL_.size);
+    const float delaySizeR = static_cast<float>(delayR_.size);
+    const float invDelaySizeL = canProcessL ? (1.0f / delaySizeL) : 0.0f;
+    const float invDelaySizeR = canProcessR ? (1.0f / delaySizeR) : 0.0f;
     for (uint32_t i = 0; i < numSamples; ++i) {
         const SmoothedParams params = advanceSmoothers();
         ++heavyParamCadenceCounter_;
-        outputL[i] = processChannel(inputL[i], delayL_, lowpassL_, dcL_, diffuserL_, params, -params.stereoSpread);
-        outputR[i] = processChannel(inputR[i], delayR_, lowpassR_, dcR_, diffuserR_, params, params.stereoSpread);
+        const float inLSafe = sanitizeFinite(inputL[i], 0.0f);
+        const float inRSafe = sanitizeFinite(inputR[i], 0.0f);
+        outputL[i] = canProcessL
+                         ? processChannelFast(inLSafe, delayL_, lowpassL_, dcL_, diffuserL_, params, -params.stereoSpread, delaySizeL, invDelaySizeL)
+                         : dryPassThrough(inLSafe);
+        outputR[i] = canProcessR
+                         ? processChannelFast(inRSafe, delayR_, lowpassR_, dcR_, diffuserR_, params, params.stereoSpread, delaySizeR, invDelaySizeR)
+                         : dryPassThrough(inRSafe);
     }
 }
 

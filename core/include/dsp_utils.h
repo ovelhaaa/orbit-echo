@@ -28,13 +28,20 @@ inline int32_t wrapIndexInt(int32_t idx, uint32_t size) {
 }
 
 inline float wrapPosFloat(float pos, float size) {
-    while (pos < 0.0f) {
-        pos += size;
+    if (size <= 0.0f) {
+        return 0.0f;
     }
-    while (pos >= size) {
-        pos -= size;
+    const float invSize = 1.0f / size;
+    const float wrapped = pos - size * std::floor(pos * invSize);
+    return (wrapped >= size) ? (wrapped - size) : wrapped;
+}
+
+inline float wrapPosFloat(float pos, float size, float invSize) {
+    if (size <= 0.0f || invSize <= 0.0f) {
+        return 0.0f;
     }
-    return pos;
+    const float wrapped = pos - size * std::floor(pos * invSize);
+    return (wrapped >= size) ? (wrapped - size) : wrapped;
 }
 
 inline uint32_t wrapIncrement(uint32_t idx, uint32_t size) {

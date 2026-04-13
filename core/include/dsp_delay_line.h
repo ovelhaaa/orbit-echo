@@ -48,6 +48,15 @@ struct DelayLine {
         }
 
         const float wrapped = wrapPosFloat(pos, static_cast<float>(size));
+        return readAbsoluteLinearWrapped(wrapped);
+    }
+
+    float readAbsoluteLinearWrapped(float wrappedPos) const {
+        if (buffer == nullptr || size < 2u) {
+            return 0.0f;
+        }
+
+        const float wrapped = wrappedPos;
         const int32_t i0 = static_cast<int32_t>(wrapped);
         const int32_t i1 = (i0 + 1 >= static_cast<int32_t>(size)) ? 0 : (i0 + 1);
         const float frac = wrapped - static_cast<float>(i0);
@@ -64,6 +73,15 @@ struct DelayLine {
         }
 
         const float wrapped = wrapPosFloat(pos, static_cast<float>(size));
+        return readAbsoluteHermiteWrapped(wrapped);
+    }
+
+    float readAbsoluteHermiteWrapped(float wrappedPos) const {
+        if (buffer == nullptr || size < 4u) {
+            return readAbsoluteLinearWrapped(wrappedPos);
+        }
+
+        const float wrapped = wrappedPos;
         const int32_t i1 = static_cast<int32_t>(wrapped);
         const int32_t i0 = (i1 == 0) ? static_cast<int32_t>(size - 1) : (i1 - 1);
         const int32_t i2 = (i1 + 1 >= static_cast<int32_t>(size)) ? 0 : (i1 + 1);
