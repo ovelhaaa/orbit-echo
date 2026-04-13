@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 
 namespace orbit::embedded {
@@ -32,6 +33,7 @@ private:
     UiTickCallback callback_ = nullptr;
     void* userData_ = nullptr;
     TaskHandle_t taskHandle_ = nullptr;
+    SemaphoreHandle_t stoppedSignal_ = nullptr;
     bool running_ = false;
 };
 

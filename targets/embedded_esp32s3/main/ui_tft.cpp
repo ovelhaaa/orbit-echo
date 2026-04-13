@@ -21,6 +21,15 @@ bool UiTft::start(const Config& config, UiTickCallback callback, void* userData)
     config_ = config;
     callback_ = callback;
     userData_ = userData;
+
+    if (!stoppedSignal_) {
+        stoppedSignal_ = xSemaphoreCreateBinary();
+        if (!stoppedSignal_) {
+            ESP_LOGE(kTag, "Falha ao criar semáforo de sincronização da UI");
+            return false;
+        }
+    }
+
     running_ = true;
 
     BaseType_t ok = xTaskCreatePinnedToCore(taskEntry, "ui_tft_task", config_.stackWords, this,
@@ -37,10 +46,25 @@ bool UiTft::start(const Config& config, UiTickCallback callback, void* userData)
 }
 
 void UiTft::stop() {
+    if (!running_) {
+        if (stoppedSignal_) {
+            vSemaphoreDelete(stoppedSignal_);
+            stoppedSignal_ = nullptr;
+        }
+        return;
+    }
+
     running_ = false;
-    if (taskHandle_) {
-        vTaskDelete(taskHandle_);
-        taskHandle_ = nullptr;
+
+    if (taskHandle_ && stoppedSignal_) {
+        xSemaphoreTake(stoppedSignal_, portMAX_DELAY);
+    }
+
+    taskHandle_ = nullptr;
+
+    if (stoppedSignal_) {
+        vSemaphoreDelete(stoppedSignal_);
+        stoppedSignal_ = nullptr;
     }
 }
 
@@ -59,6 +83,10 @@ void UiTft::taskLoop() {
         vTaskDelayUntil(&lastWake, periodTicks);
     }
 
+    taskHandle_ = nullptr;
+    if (stoppedSignal_) {
+        xSemaphoreGive(stoppedSignal_);
+    }
     vTaskDelete(nullptr);
 }
 

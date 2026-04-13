@@ -5,6 +5,7 @@
 
 #include "driver/i2s.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 
 namespace orbit::embedded {
@@ -54,6 +55,7 @@ private:
     bool initialized_ = false;
     bool running_ = false;
     TaskHandle_t taskHandle_ = nullptr;
+    SemaphoreHandle_t stoppedSignal_ = nullptr;
 };
 
 } // namespace orbit::embedded

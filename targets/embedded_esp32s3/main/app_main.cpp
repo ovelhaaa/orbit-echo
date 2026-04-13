@@ -4,6 +4,7 @@
 
 #include "core/include/orbit_delay_core.h"
 
+#include <algorithm>
 #include <cstdint>
 
 #include "esp_heap_caps.h"
@@ -14,7 +15,8 @@
 namespace orbit::embedded {
 namespace {
 constexpr const char* kTag = "orbit_app";
-constexpr uint32_t kMaxDelaySamples = 96000;
+// 0.5s @ 48kHz: mantém buffers críticos em SRAM interna com margem de heap no ESP32-S3.
+constexpr uint32_t kMaxDelaySamples = 24000;
 
 struct AppContext {
     dsp::OrbitDelayCore core;
@@ -59,8 +61,10 @@ void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInt
         float outR = 0.0f;
         app->core.processSampleStereo(inL, inR, outL, outR);
 
-        outInterleaved[i * 2] = static_cast<int32_t>(outL * 2147483647.0f);
-        outInterleaved[i * 2 + 1] = static_cast<int32_t>(outR * 2147483647.0f);
+        const float clampedL = std::clamp(outL, -1.0f, 1.0f);
+        const float clampedR = std::clamp(outR, -1.0f, 1.0f);
+        outInterleaved[i * 2] = static_cast<int32_t>(clampedL * 2147483647.0f);
+        outInterleaved[i * 2 + 1] = static_cast<int32_t>(clampedR * 2147483647.0f);
     }
 }
 
@@ -94,8 +98,8 @@ extern "C" void app_main(void) {
     // Não crítico: PSRAM para UI/assets/logs.
     app.uiScratch = static_cast<uint8_t*>(heap_caps_malloc(256 * 1024, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
 
-    if (!app.delayBufferL || !app.delayBufferR) {
-        ESP_LOGE(kTag, "Falha ao alocar buffers DSP em SRAM interna");
+    if (!app.delayBufferL || !app.delayBufferR || !app.uiScratch) {
+        ESP_LOGE(kTag, "Falha ao alocar buffers (SRAM ou PSRAM)");
         return;
     }
 

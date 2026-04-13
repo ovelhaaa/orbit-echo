@@ -70,11 +70,21 @@ bool AudioEngineEsp32::init(const Config& config, AudioCallback callback, void* 
 
     interleavedSamplesPerBlock_ = static_cast<size_t>(config_.dmaBufferFrames) * 2u;
     const size_t bytes = interleavedSamplesPerBlock_ * sizeof(int32_t);
-    rxBuffer_ = static_cast<int32_t*>(heap_caps_malloc(bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+
+    if (config_.enableRx) {
+        rxBuffer_ = static_cast<int32_t*>(heap_caps_malloc(bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    }
     txBuffer_ = static_cast<int32_t*>(heap_caps_malloc(bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
 
     if (!txBuffer_ || (config_.enableRx && !rxBuffer_)) {
         ESP_LOGE(kTag, "Falha ao alocar buffers críticos em SRAM interna");
+        deinit();
+        return false;
+    }
+
+    stoppedSignal_ = xSemaphoreCreateBinary();
+    if (!stoppedSignal_) {
+        ESP_LOGE(kTag, "Falha ao criar semáforo de sincronização da task de áudio");
         deinit();
         return false;
     }
@@ -102,17 +112,28 @@ bool AudioEngineEsp32::start() {
 }
 
 void AudioEngineEsp32::stop() {
-    running_ = false;
-    if (taskHandle_) {
-        vTaskDelete(taskHandle_);
-        taskHandle_ = nullptr;
+    if (!running_) {
+        return;
     }
+
+    running_ = false;
+
+    if (taskHandle_ && stoppedSignal_) {
+        xSemaphoreTake(stoppedSignal_, portMAX_DELAY);
+    }
+
+    taskHandle_ = nullptr;
 }
 
 void AudioEngineEsp32::deinit() {
     stop();
     if (initialized_) {
         i2s_driver_uninstall(config_.port);
+    }
+
+    if (stoppedSignal_) {
+        vSemaphoreDelete(stoppedSignal_);
+        stoppedSignal_ = nullptr;
     }
 
     if (rxBuffer_) {
@@ -154,6 +175,10 @@ void AudioEngineEsp32::audioTaskLoop() {
         }
     }
 
+    taskHandle_ = nullptr;
+    if (stoppedSignal_) {
+        xSemaphoreGive(stoppedSignal_);
+    }
     vTaskDelete(nullptr);
 }
 
