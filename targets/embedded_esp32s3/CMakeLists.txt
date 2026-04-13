@@ -9,6 +9,7 @@ idf_component_register(
   SRCS
     main/app_main.cpp
     ../../core/src/orbit_delay_core.cpp
+    ../../core/src/orbit_delay_c_api.cpp
   INCLUDE_DIRS
     ../../
 )
