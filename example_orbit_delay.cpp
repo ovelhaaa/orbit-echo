@@ -2,7 +2,7 @@
 #include <cmath>
 #include <iostream>
 
-#include "orbit_delay_core.h"
+#include "core/include/orbit_delay_core.h"
 
 // Buffers externos estáticos (podem viver fora do objeto para integração embarcada/RT).
 constexpr uint32_t MAX_DELAY_SAMPLES = 48000;
