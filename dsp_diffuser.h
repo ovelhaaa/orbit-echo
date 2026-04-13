@@ -57,6 +57,7 @@ struct AllpassDiffuser {
 
     void setStageCount(uint32_t count) {
         stageCount = (count > kMaxStages) ? kMaxStages : count;
+        setAmount(amount);
     }
 
     void setAmount(float amt) {

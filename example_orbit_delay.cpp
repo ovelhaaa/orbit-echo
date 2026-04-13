@@ -13,7 +13,10 @@ int main() {
     std::array<float, delayBufferSize> delayRight{};
 
     orbit::dsp::OrbitDelayCore delay;
-    delay.attachBuffers(delayLeft.data(), delayBufferSize, delayRight.data(), delayBufferSize);
+    if (!delay.attachBuffers(delayLeft.data(), delayBufferSize, delayRight.data(), delayBufferSize)) {
+        std::cerr << "Failed to attach delay buffers.\n";
+        return 1;
+    }
     delay.reset(sampleRate);
     delay.setOrbit(0.73f);
     delay.setOffsetSamples(7200.0f);
@@ -32,7 +35,7 @@ int main() {
 
     for (uint32_t i = 0; i < numSamples; ++i) {
         const float phase = static_cast<float>(i) / sampleRate;
-        const float signal = std::sin(2.0f * 3.14159265358979323846f * 440.0f * phase);
+        const float signal = std::sin(2.0f * orbit::dsp::kPi * 440.0f * phase);
         inL[i] = signal;
         inR[i] = signal;
     }

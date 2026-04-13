@@ -17,8 +17,12 @@ void OrbitDelayCore::reset(float sampleRate) {
 }
 
 bool OrbitDelayCore::attachBuffers(float* leftBuffer, uint32_t leftSize, float* rightBuffer, uint32_t rightSize) {
+    if (rightBuffer != nullptr && rightSize <= 1u) {
+        return false;
+    }
+
     const bool leftOk = delayL_.attach(leftBuffer, leftSize);
-    const bool rightRequested = (rightBuffer != nullptr && rightSize > 1u);
+    const bool rightRequested = (rightBuffer != nullptr);
     const bool rightOk = rightRequested ? delayR_.attach(rightBuffer, rightSize) : false;
 
     if (!rightRequested) {
@@ -99,16 +103,35 @@ float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpa
     float wet = delay.readAbsoluteLinear(readPos);
 #endif
 
-    wet = diffuser.process(wet);
-    const float fb = lp.process(wet) * feedback_;
-
-    float toBuffer = input * inputGain_ + fb;
-    if (dcBlockEnabled_) {
-        toBuffer = dc.process(toBuffer);
+    if (!isFiniteSafe(wet)) {
+        wet = 0.0f;
     }
 
+    wet = diffuser.process(wet);
+    if (!isFiniteSafe(wet)) {
+        diffuser.reset();
+        wet = 0.0f;
+    }
+
+    float filteredWet = lp.process(wet);
+    if (!isFiniteSafe(filteredWet)) {
+        lp.reset(0.0f);
+        filteredWet = 0.0f;
+    }
+
+    const float fb = filteredWet * feedback_;
+
+    float toBuffer = input * inputGain_ + fb;
     if (!isFiniteSafe(toBuffer)) {
         toBuffer = 0.0f;
+    }
+
+    if (dcBlockEnabled_) {
+        toBuffer = dc.process(toBuffer);
+        if (!isFiniteSafe(toBuffer)) {
+            dc.reset();
+            toBuffer = 0.0f;
+        }
     }
 
     delay.write(toBuffer);

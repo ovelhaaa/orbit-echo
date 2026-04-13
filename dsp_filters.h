@@ -33,7 +33,7 @@ struct OnePoleLowpass {
 
 private:
     void updateAlpha() {
-        const float wc = 2.0f * 3.14159265358979323846f * cutoffHz;
+        const float wc = 2.0f * kPi * cutoffHz;
         alpha = wc / (wc + sampleRate);
         alpha = clampf(alpha, 0.0f, 1.0f);
     }
@@ -70,7 +70,7 @@ struct DCBlocker {
 
 private:
     void updateR() {
-        const float pole = std::exp(-2.0f * 3.14159265358979323846f * cutoffHz / sampleRate);
+        const float pole = std::exp(-2.0f * kPi * cutoffHz / sampleRate);
         r = clampf(pole, 0.0f, 0.99999f);
     }
 };

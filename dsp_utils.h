@@ -5,6 +5,8 @@
 
 namespace orbit::dsp {
 
+static constexpr float kPi = 3.14159265358979323846f;
+
 inline float clampf(float x, float lo, float hi) {
     return (x < lo) ? lo : ((x > hi) ? hi : x);
 }
@@ -15,11 +17,12 @@ inline bool isFiniteSafe(float x) {
 
 inline int32_t wrapIndexInt(int32_t idx, uint32_t size) {
     const int32_t s = static_cast<int32_t>(size);
-    while (idx < 0) {
-        idx += s;
+    if (s <= 0) {
+        return 0;
     }
-    while (idx >= s) {
-        idx -= s;
+    idx %= s;
+    if (idx < 0) {
+        idx += s;
     }
     return idx;
 }
