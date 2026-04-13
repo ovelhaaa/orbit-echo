@@ -1,19 +1,133 @@
+#include "audio_engine_esp32.h"
+#include "parameter_bridge.h"
+#include "ui_tft.h"
+
 #include "core/include/orbit_delay_core.h"
 
 #include <cstdint>
 
+#include "esp_heap_caps.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+namespace orbit::embedded {
+namespace {
+constexpr const char* kTag = "orbit_app";
+constexpr uint32_t kMaxDelaySamples = 96000;
+
+struct AppContext {
+    dsp::OrbitDelayCore core;
+    ParameterBridge params;
+    AudioEngineEsp32 audio;
+    UiTft ui;
+
+    float* delayBufferL = nullptr;
+    float* delayBufferR = nullptr;
+
+    // Não crítico: pode ficar em PSRAM (UI/assets/logs/cache).
+    uint8_t* uiScratch = nullptr;
+};
+
+void applyParams(dsp::OrbitDelayCore& core, const AudioParams& p) {
+    core.setOrbit(p.orbit);
+    core.setOffsetSamples(p.offsetSamples);
+    core.setStereoSpread(p.stereoSpread);
+    core.setFeedback(p.feedback);
+    core.setMix(p.mix);
+    core.setInputGain(p.inputGain);
+    core.setOutputGain(p.outputGain);
+    core.setToneHz(p.toneHz);
+    core.setSmearAmount(p.smearAmount);
+    core.setDiffuserStages(p.diffuserStages);
+    core.setDcBlockEnabled(p.dcBlockEnabled);
+}
+
+void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInterleaved, size_t frames) {
+    auto* app = static_cast<AppContext*>(userData);
+
+    AudioParams params;
+    if (app->params.consumeIfUpdated(params)) {
+        applyParams(app->core, params);
+    }
+
+    for (size_t i = 0; i < frames; ++i) {
+        const float inL = inInterleaved ? static_cast<float>(inInterleaved[i * 2]) / 2147483648.0f : 0.0f;
+        const float inR = inInterleaved ? static_cast<float>(inInterleaved[i * 2 + 1]) / 2147483648.0f : 0.0f;
+
+        float outL = 0.0f;
+        float outR = 0.0f;
+        app->core.processSampleStereo(inL, inR, outL, outR);
+
+        outInterleaved[i * 2] = static_cast<int32_t>(outL * 2147483647.0f);
+        outInterleaved[i * 2 + 1] = static_cast<int32_t>(outR * 2147483647.0f);
+    }
+}
+
+void uiTick(void* userData) {
+    auto* app = static_cast<AppContext*>(userData);
+    static uint32_t tick = 0;
+    ++tick;
+
+    AudioParams p;
+    p.mix = 0.30f + 0.15f * ((tick / 120) % 2);
+    p.feedback = 0.40f;
+    p.toneHz = 6500.0f;
+    p.smearAmount = 0.20f;
+    app->params.publish(p);
+}
+
+} // namespace
+} // namespace orbit::embedded
+
 extern "C" void app_main(void) {
-    constexpr uint32_t kMaxDelaySamples = 48000;
-    static float delayBufferL[kMaxDelaySamples] = {};
-    static float delayBufferR[kMaxDelaySamples] = {};
+    using namespace orbit::embedded;
 
-    orbit::dsp::OrbitDelayCore fx;
-    fx.attachBuffers(delayBufferL, delayBufferR, kMaxDelaySamples);
-    fx.reset(48000.0f);
-    fx.setFeedback(0.45f);
-    fx.setMix(0.35f);
+    static AppContext app;
 
-    float outL = 0.0f;
-    float outR = 0.0f;
-    fx.processSampleStereo(0.0f, 0.0f, outL, outR);
+    // Crítico para áudio/DSP: SRAM interna para latência previsível.
+    app.delayBufferL = static_cast<float*>(heap_caps_malloc(sizeof(float) * kMaxDelaySamples,
+                                                            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    app.delayBufferR = static_cast<float*>(heap_caps_malloc(sizeof(float) * kMaxDelaySamples,
+                                                            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+
+    // Não crítico: PSRAM para UI/assets/logs.
+    app.uiScratch = static_cast<uint8_t*>(heap_caps_malloc(256 * 1024, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+
+    if (!app.delayBufferL || !app.delayBufferR) {
+        ESP_LOGE(kTag, "Falha ao alocar buffers DSP em SRAM interna");
+        return;
+    }
+
+    app.core.attachBuffers(app.delayBufferL, app.delayBufferR, kMaxDelaySamples);
+    app.core.reset(48000.0f);
+
+    AudioParams initialParams;
+    initialParams.dcBlockEnabled = true;
+    app.params.publish(initialParams);
+
+    AudioEngineEsp32::Config audioCfg;
+    audioCfg.sampleRate = 48000;
+    audioCfg.enableRx = true;
+    audioCfg.enableTx = true;
+
+    if (!app.audio.init(audioCfg, audioCallback, &app) || !app.audio.start()) {
+        ESP_LOGE(kTag, "Falha ao iniciar engine de áudio");
+        return;
+    }
+
+    UiTft::Config uiCfg;
+    uiCfg.refreshPeriodMs = 33;
+    uiCfg.core = 1;
+    uiCfg.priority = 2;
+
+    if (!app.ui.start(uiCfg, uiTick, &app)) {
+        ESP_LOGW(kTag, "UI não iniciou; áudio segue ativo");
+    }
+
+    ESP_LOGI(kTag, "Sistema iniciado: core DSP, áudio I2S+DMA e UI em tasks separadas");
+
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 }
