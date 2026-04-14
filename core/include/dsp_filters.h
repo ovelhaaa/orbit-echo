@@ -6,38 +6,72 @@
 
 namespace orbit::dsp {
 
-struct OnePoleLowpass {
+struct BiquadLowpass {
     float sampleRate = 48000.0f;
     float cutoffHz = 8000.0f;
-    float alpha = 1.0f;
-    float z = 0.0f;
+    float q = 0.707f;
+    float b0 = 1.0f;
+    float b1 = 0.0f;
+    float b2 = 0.0f;
+    float a1 = 0.0f;
+    float a2 = 0.0f;
+    float z1 = 0.0f;
+    float z2 = 0.0f;
 
-    void reset(float state = 0.0f) {
-        z = state;
+    void reset() {
+        z1 = 0.0f;
+        z2 = 0.0f;
     }
 
     void setSampleRate(float sr) {
         sampleRate = clampf(sr, 1.0f, 384000.0f);
-        updateAlpha();
+        updateCoefficients();
     }
 
     void setCutoffHz(float hz) {
+        setParams(hz, q);
+    }
+
+    void setQ(float value) {
+        setParams(cutoffHz, value);
+    }
+
+    void setParams(float hz, float qValue) {
         cutoffHz = clampf(hz, 1.0f, 0.49f * sampleRate);
-        updateAlpha();
+        q = clampf(qValue, 0.1f, 10.0f);
+        updateCoefficients();
     }
 
     float process(float x) {
-        z += alpha * (x - z);
-        return z;
+        const float y = b0 * x + z1;
+        z1 = b1 * x - a1 * y + z2;
+        z2 = b2 * x - a2 * y;
+        return y;
     }
 
 private:
-    void updateAlpha() {
-        const float wc = 2.0f * kPi * cutoffHz;
-        alpha = wc / (wc + sampleRate);
-        alpha = clampf(alpha, 0.0f, 1.0f);
+    void updateCoefficients() {
+        const float w0 = 2.0f * kPi * cutoffHz / sampleRate;
+        const float cosW0 = std::cos(w0);
+        const float sinW0 = std::sin(w0);
+        const float alpha = sinW0 / (2.0f * q);
+        const float a0 = 1.0f + alpha;
+
+        const float b0Raw = (1.0f - cosW0) * 0.5f;
+        const float b1Raw = 1.0f - cosW0;
+        const float b2Raw = b0Raw;
+        const float a1Raw = -2.0f * cosW0;
+        const float a2Raw = 1.0f - alpha;
+
+        b0 = b0Raw / a0;
+        b1 = b1Raw / a0;
+        b2 = b2Raw / a0;
+        a1 = a1Raw / a0;
+        a2 = a2Raw / a0;
     }
 };
+
+using OnePoleLowpass [[deprecated("Use BiquadLowpass")]] = BiquadLowpass;
 
 struct DCBlocker {
     float sampleRate = 48000.0f;
