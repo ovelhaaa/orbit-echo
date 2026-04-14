@@ -20,11 +20,33 @@
         --focus: #9fc8ff;
         --ok: #4de0a0;
         --warn: #ffbe6b;
+        --surface-top: #131f34;
+        --panel-start: #12203a;
+        --quick-border: #466499;
+        --quick-start: #1a2e4f;
+        --quick-end: #121d31;
+        --status-inline: #d8e5ff;
+        --title: #d7e6ff;
+        --label: #e4edff;
+        --output: #f1f6ff;
+        --control-border: #48648f;
+        --control-bg: #1d2c48;
+        --control-hover-bg: #25395c;
+        --control-hover-border: #678abf;
+        --control-active-bg: #1a2942;
+        --primary-border: #82aaff;
+        --primary-text: #f7f9ff;
+        --transport-active-bg: #174b36;
+        --transport-active-text: #dcffe9;
+        --transport-bypass-bg: #5d3511;
+        --transport-bypass-text: #ffe6c8;
+        --help: #adc0e2;
+        --link: #dfe9ff;
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
-        background: radial-gradient(circle at 10% 0, #131f34 0, var(--bg) 52%);
+        background: radial-gradient(circle at 10% 0, var(--surface-top) 0, var(--bg) 52%);
         color: var(--text);
         line-height: 1.4;
       }
@@ -43,7 +65,7 @@
         border-radius: 14px;
         padding: 18px;
         margin-top: 18px;
-        background: linear-gradient(180deg, #12203a 0%, var(--panel) 100%);
+        background: linear-gradient(180deg, var(--panel-start) 0%, var(--panel) 100%);
       }
       .panel h2 {
         font-size: 1rem;
@@ -51,8 +73,8 @@
       }
       .panel + .panel { margin-top: 14px; }
       .quick-flow {
-        border-color: #466499;
-        background: linear-gradient(180deg, #1a2e4f 0%, #121d31 100%);
+        border-color: var(--quick-border);
+        background: linear-gradient(180deg, var(--quick-start) 0%, var(--quick-end) 100%);
       }
       .quick-grid {
         display: grid;
@@ -61,7 +83,7 @@
         align-items: center;
       }
       .quick-grid .status-inline {
-        color: #d8e5ff;
+        color: var(--status-inline);
         font-size: 0.92rem;
       }
       .group-title {
@@ -69,7 +91,7 @@
         align-items: center;
         gap: 8px;
         margin-bottom: 10px;
-        color: #d7e6ff;
+        color: var(--title);
       }
       .controls {
         display: grid;
@@ -82,9 +104,9 @@
         align-items: center;
         margin: 0;
       }
-      label { color: #e4edff; }
+      label { color: var(--label); }
       output {
-        color: #f1f6ff;
+        color: var(--output);
         text-align: right;
         font-variant-numeric: tabular-nums;
       }
@@ -94,8 +116,8 @@
       button,
       a {
         border-radius: 10px;
-        border: 1px solid #48648f;
-        background: #1d2c48;
+        border: 1px solid var(--control-border);
+        background: var(--control-bg);
         color: var(--text);
         min-height: 40px;
       }
@@ -105,7 +127,7 @@
         padding: 8px 10px;
       }
       button,
-      a {
+      a:not([hidden]) {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -116,9 +138,9 @@
         transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
       }
       button:hover,
-      a:hover { background: #25395c; border-color: #678abf; }
+      a:hover { background: var(--control-hover-bg); border-color: var(--control-hover-border); }
       button:active,
-      a:active { background: #1a2942; transform: translateY(1px); }
+      a:active { background: var(--control-active-bg); transform: translateY(1px); }
       button:focus-visible,
       a:focus-visible,
       select:focus-visible,
@@ -126,15 +148,14 @@
         outline: 2px solid var(--focus);
         outline-offset: 2px;
       }
-      button:disabled,
-      a[hidden] {
+      button:disabled {
         opacity: 0.48;
         cursor: not-allowed;
       }
       .btn-primary {
         background: var(--accent);
-        border-color: #82aaff;
-        color: #f7f9ff;
+        border-color: var(--primary-border);
+        color: var(--primary-text);
       }
       .btn-primary:hover { background: var(--accent-hover); }
       .btn-primary:active { background: var(--accent-active); }
@@ -147,18 +168,18 @@
       }
       .transport button.is-active {
         border-color: var(--ok);
-        background: #174b36;
-        color: #dcffe9;
+        background: var(--transport-active-bg);
+        color: var(--transport-active-text);
       }
       .transport button.is-bypass {
         border-color: var(--warn);
-        background: #5d3511;
-        color: #ffe6c8;
+        background: var(--transport-bypass-bg);
+        color: var(--transport-bypass-text);
       }
       .transport-state,
       .hint,
       .tap-feedback {
-        color: #adc0e2;
+        color: var(--help);
         font-size: 0.88rem;
       }
       .tap-controls {
@@ -173,7 +194,7 @@
         gap: 14px;
         grid-template-columns: 1.2fr 1fr;
       }
-      a { color: #dfe9ff; }
+      a { color: var(--link); }
       @media (max-width: 900px) {
         .split { grid-template-columns: 1fr; }
         .quick-grid { grid-template-columns: 1fr; }
@@ -190,7 +211,7 @@
       <section class="panel quick-flow">
         <h2 class="group-title">⚡ Fluxo principal</h2>
         <div class="quick-grid">
-          <input id="audioFile" type="file" accept="audio/*" />
+          <input id="audioFile" type="file" accept="audio/*" aria-label="Arquivo de entrada (wav, mp3, flac ou ogg)" />
           <p id="status" class="status-inline">Inicializando WASM...</p>
           <button id="processBtn" class="btn-primary" disabled>Processar áudio</button>
         </div>
@@ -318,7 +339,7 @@
               <output id="shimmerModeOut">Bypass (som cru)</output>
             </div>
           </div>
-          <p class="hint">Orbit, Offset e Tempo ficam no bloco principal para ajustes rápidos no fluxo de trabalho.</p>
+          <p class="hint">Orbit, Offset e Tempo ficam em Controles frequentes para ajustes rápidos no fluxo de trabalho.</p>
         </section>
       </section>
     </main>
