@@ -59,6 +59,16 @@
       audio { width: 100%; margin-top: 12px; }
       a { color: #80a5ff; }
       .hint { color: #98a7c9; font-size: 0.85rem; margin-top: 8px; }
+      .tap-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .tap-feedback {
+        color: #98a7c9;
+        font-size: 0.85rem;
+      }
     </style>
   </head>
   <body>
@@ -120,6 +130,14 @@
             <label for="tempoBpm">Tempo (BPM)</label>
             <input id="tempoBpm" type="range" min="20" max="240" step="1" value="120" />
             <output id="tempoBpmOut">120</output>
+          </div>
+          <div class="row">
+            <label>Tap tempo</label>
+            <div class="tap-controls">
+              <button id="tapTempoBtn" type="button">Tap Tempo</button>
+              <button id="resetTapBtn" type="button">Reset Tap</button>
+            </div>
+            <output id="tapTempoOut" class="tap-feedback">Tap: -- BPM</output>
           </div>
           <div class="row">
             <label for="noteDivision">Subdivisão</label>
