@@ -10,6 +10,11 @@ extern "C" {
 /** Opaque handle para a instância C++ interna do Orbit Delay. */
 typedef struct OrbitDelayHandle OrbitDelayHandle;
 
+typedef enum OrbitReadMode {
+    ORBIT_READ_MODE_ORBIT = 0,
+    ORBIT_READ_MODE_ACCIDENTAL_REVERSE = 1,
+} OrbitReadMode;
+
 /**
  * Cria/inicializa uma instância em modo estéreo e anexa buffers de delay.
  *
@@ -79,6 +84,7 @@ bool orbit_set_tone_hz(OrbitDelayHandle* handle, float value);
 bool orbit_set_smear_amount(OrbitDelayHandle* handle, float value);
 bool orbit_set_diffuser_stages(OrbitDelayHandle* handle, uint32_t value);
 bool orbit_set_dc_block_enabled(OrbitDelayHandle* handle, bool enabled);
+bool orbit_set_read_mode(OrbitDelayHandle* handle, OrbitReadMode mode);
 
 /** Reanexa buffers estéreo com semântica canônica (L, R, size compartilhado). */
 bool orbit_attach_buffers(OrbitDelayHandle* handle, float* delay_buffer_l, float* delay_buffer_r, uint32_t delay_size);
