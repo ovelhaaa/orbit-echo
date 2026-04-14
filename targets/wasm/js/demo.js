@@ -3,9 +3,9 @@ import createOrbitModule from './orbit_delay_wasm.js';
 const BLOCK_SIZE = 128;
 const MAX_DELAY_SAMPLES = 48000 * 2;
 const TAP_BUFFER_SIZE = 8;
-const TAP_EXPIRE_MS = 2000;
 const TAP_MIN_BPM = 20;
 const TAP_MAX_BPM = 240;
+const TAP_EXPIRE_MS = 4000;
 
 const PRESETS = {
   A: {
@@ -92,7 +92,13 @@ function clamp(value, min, max) {
 function clearTapHistory() {
   tapState.timestamps = [];
   tapState.lastTapAt = 0;
-  if (els.tapTempoOut) els.tapTempoOut.textContent = 'Tap: -- BPM';
+  if (els.tapTempoOut) els.tapTempoOut.textContent = 'Tempo detectado: -- BPM';
+}
+
+function updateTapTempoOut() {
+  if (!els.tapTempoOut) return;
+  const bpm = Math.round(Number(els.tempoBpm.value));
+  els.tapTempoOut.textContent = `Tempo detectado: ${bpm} BPM`;
 }
 
 function setTempoBpmFromTap(bpm) {
@@ -100,7 +106,7 @@ function setTempoBpmFromTap(bpm) {
   els.tempoBpm.value = String(clampedBpm);
   renderOutput('tempoBpm');
   if (api) api.setTempoBpm(clampedBpm);
-  if (els.tapTempoOut) els.tapTempoOut.textContent = `Tap: ${clampedBpm} BPM`;
+  updateTapTempoOut();
 }
 
 function median(values) {
@@ -174,6 +180,7 @@ function applyPreset(presetId) {
     if (els[key]) els[key].value = String(value);
   });
   Object.keys(outputs).forEach(renderOutput);
+  updateTapTempoOut();
 }
 
 let module;
@@ -371,9 +378,7 @@ applyPreset('A');
 
 els.tapTempoBtn?.addEventListener('click', handleTapTempo);
 els.resetTapBtn?.addEventListener('click', clearTapHistory);
-els.tempoBpm.addEventListener('input', () => {
-  if (els.tapTempoOut) els.tapTempoOut.textContent = `Tap: ${Math.round(Number(els.tempoBpm.value))} BPM`;
-});
+els.tempoBpm.addEventListener('input', updateTapTempoOut);
 
 initWasm().catch((err) => {
   els.status.textContent = `Falha ao iniciar WASM: ${err instanceof Error ? err.message : String(err)}`;
