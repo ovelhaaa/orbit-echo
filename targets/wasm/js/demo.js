@@ -2,6 +2,10 @@ import createOrbitModule from './orbit_delay_wasm.js';
 
 const BLOCK_SIZE = 128;
 const MAX_DELAY_SAMPLES = 48000 * 2;
+const TAP_BUFFER_SIZE = 8;
+const TAP_MIN_BPM = 20;
+const TAP_MAX_BPM = 240;
+const TAP_EXPIRE_MS = 4000;
 
 const PRESETS = {
   A: {
@@ -51,6 +55,9 @@ const els = {
   toneHz: document.getElementById('toneHz'),
   smearAmount: document.getElementById('smearAmount'),
   tempoBpm: document.getElementById('tempoBpm'),
+  tapTempoBtn: document.getElementById('tapTempoBtn'),
+  resetTapBtn: document.getElementById('resetTapBtn'),
+  tapTempoOut: document.getElementById('tapTempoOut'),
   noteDivision: document.getElementById('noteDivision'),
   readMode: document.getElementById('readMode'),
   dcBlockEnabled: document.getElementById('dcBlockEnabled'),
@@ -72,6 +79,69 @@ const outputs = {
   dcBlockEnabled: document.getElementById('dcBlockEnabledOut'),
   shimmerMode: document.getElementById('shimmerModeOut')
 };
+
+const tapState = {
+  timestamps: [],
+  lastTapAt: 0
+};
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function clearTapHistory() {
+  tapState.timestamps = [];
+  tapState.lastTapAt = 0;
+  if (els.tapTempoOut) els.tapTempoOut.textContent = 'Tempo detectado: -- BPM';
+}
+
+function updateTapTempoOut() {
+  if (!els.tapTempoOut) return;
+  const bpm = Math.round(Number(els.tempoBpm.value));
+  els.tapTempoOut.textContent = `Tempo detectado: ${bpm} BPM`;
+}
+
+function setTempoBpmFromTap(bpm) {
+  const clampedBpm = clamp(Math.round(bpm), TAP_MIN_BPM, TAP_MAX_BPM);
+  els.tempoBpm.value = String(clampedBpm);
+  renderOutput('tempoBpm');
+  if (api) api.setTempoBpm(clampedBpm);
+  updateTapTempoOut();
+}
+
+function median(values) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted[mid];
+}
+
+function handleTapTempo() {
+  const now = performance.now();
+  if (tapState.lastTapAt && now - tapState.lastTapAt > TAP_EXPIRE_MS) {
+    clearTapHistory();
+  }
+
+  tapState.lastTapAt = now;
+  tapState.timestamps.push(now);
+  if (tapState.timestamps.length > TAP_BUFFER_SIZE) {
+    tapState.timestamps.shift();
+  }
+
+  if (tapState.timestamps.length < 2) return;
+
+  const intervals = [];
+  for (let i = 1; i < tapState.timestamps.length; i += 1) {
+    intervals.push(tapState.timestamps[i] - tapState.timestamps[i - 1]);
+  }
+
+  const intervalMs = median(intervals);
+  if (intervalMs <= 0) return;
+
+  const bpm = 60000 / intervalMs;
+  setTempoBpmFromTap(bpm);
+}
 
 function renderOutput(key) {
   const input = els[key];
@@ -110,6 +180,7 @@ function applyPreset(presetId) {
     if (els[key]) els[key].value = String(value);
   });
   Object.keys(outputs).forEach(renderOutput);
+  updateTapTempoOut();
 }
 
 let module;
@@ -304,6 +375,10 @@ els.presetMode.addEventListener('change', () => {
 
 bindOutputs();
 applyPreset('A');
+
+els.tapTempoBtn?.addEventListener('click', handleTapTempo);
+els.resetTapBtn?.addEventListener('click', clearTapHistory);
+els.tempoBpm.addEventListener('input', updateTapTempoOut);
 
 initWasm().catch((err) => {
   els.status.textContent = `Falha ao iniciar WASM: ${err instanceof Error ? err.message : String(err)}`;
