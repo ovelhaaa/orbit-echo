@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>orbit-echo | Demo WASM</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #0f1115;
+        color: #e9eef9;
+      }
+      .wrap {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      h1 { margin-bottom: 8px; }
+      p { color: #b7c2da; }
+      .panel {
+        border: 1px solid #273149;
+        border-radius: 10px;
+        padding: 16px;
+        margin-top: 16px;
+        background: #161b25;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 170px 1fr 80px;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      input[type='range'] { width: 100%; }
+      button {
+        border: 1px solid #3f73ff;
+        color: #eef3ff;
+        background: #335be4;
+        border-radius: 8px;
+        padding: 10px 14px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      #status { font-size: 0.95rem; }
+      audio { width: 100%; margin-top: 12px; }
+      a { color: #80a5ff; }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>orbit-echo WASM demo</h1>
+      <p>
+        Faça upload de um arquivo de áudio e processe direto no navegador usando o mesmo core C++ do efeito.
+      </p>
+
+      <section class="panel">
+        <label for="audioFile"><strong>Arquivo de entrada (wav/mp3/flac/ogg):</strong></label>
+        <input id="audioFile" type="file" accept="audio/*" />
+
+        <div class="panel">
+          <div class="row">
+            <label for="feedback">Feedback</label>
+            <input id="feedback" type="range" min="0" max="0.95" step="0.01" value="0.4" />
+            <output id="feedbackOut">0.40</output>
+          </div>
+          <div class="row">
+            <label for="mix">Mix</label>
+            <input id="mix" type="range" min="0" max="1" step="0.01" value="0.35" />
+            <output id="mixOut">0.35</output>
+          </div>
+          <div class="row">
+            <label for="toneHz">Tone (Hz)</label>
+            <input id="toneHz" type="range" min="200" max="18000" step="50" value="6500" />
+            <output id="toneHzOut">6500</output>
+          </div>
+          <div class="row">
+            <label for="smearAmount">Smear</label>
+            <input id="smearAmount" type="range" min="0" max="1" step="0.01" value="0.25" />
+            <output id="smearAmountOut">0.25</output>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="processBtn" disabled>Processar áudio</button>
+          <a id="downloadLink" hidden download="orbit-echo-processed.wav">Baixar WAV processado</a>
+        </div>
+
+        <p id="status">Inicializando WASM...</p>
+        <audio id="preview" controls></audio>
+      </section>
+    </main>
+
+    <script type="module" src="./demo.js"></script>
+  </body>
+</html>
