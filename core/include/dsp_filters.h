@@ -18,9 +18,9 @@ struct BiquadLowpass {
     float z1 = 0.0f;
     float z2 = 0.0f;
 
-    void reset() {
-        z1 = 0.0f;
-        z2 = 0.0f;
+    void reset(float state = 0.0f) {
+        z1 = state;
+        z2 = state;
     }
 
     void setSampleRate(float sr) {

@@ -35,7 +35,7 @@ int main() {
         return fail("BiquadLowpass coefficients should remain finite");
     }
 
-    lp.reset();
+    lp.reset(0.0f);
     float y2 = 0.0f;
     for (int i = 0; i < 128; ++i) {
         y2 = lp.process(1.0f);
