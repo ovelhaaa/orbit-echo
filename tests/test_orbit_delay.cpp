@@ -1,4 +1,5 @@
 #include <cmath>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <vector>
@@ -95,6 +96,42 @@ int main() {
         if (!finiteBuffer(outL) || !finiteBuffer(outR)) {
             return fail("stereo processing should remain finite under clamped extremes");
         }
+    }
+
+    // Sweep contínuo de parâmetros (simula drag/knob) sem NaN e sem regressão grosseira de performance.
+    constexpr uint32_t kSweepBlock = 128u;
+    constexpr uint32_t kSweepBlocks = 800u;
+    std::vector<float> sweepInL(kSweepBlock, 0.0f);
+    std::vector<float> sweepInR(kSweepBlock, 0.0f);
+    std::vector<float> sweepOutL(kSweepBlock, 0.0f);
+    std::vector<float> sweepOutR(kSweepBlock, 0.0f);
+    for (uint32_t i = 0; i < kSweepBlock; ++i) {
+        const float phase = 2.0f * 3.14159265359f * static_cast<float>(i) / static_cast<float>(kSweepBlock);
+        sweepInL[i] = std::sin(phase) * 0.25f;
+        sweepInR[i] = std::cos(phase) * 0.25f;
+    }
+
+    const auto t0 = std::chrono::steady_clock::now();
+    for (uint32_t block = 0; block < kSweepBlocks; ++block) {
+        const float t = static_cast<float>(block) / static_cast<float>(kSweepBlocks - 1u);
+        stereo.setOrbit(0.25f + 2.75f * t);
+        stereo.setOffsetSamples(-24000.0f + 48000.0f * t);
+        stereo.setStereoSpread(10.0f + 5000.0f * t);
+        stereo.setFeedback(0.05f + 0.85f * t);
+        stereo.setMix(t);
+        stereo.setInputGain(0.25f + 3.5f * t);
+        stereo.setOutputGain(0.25f + 3.5f * (1.0f - t));
+        stereo.setToneHz(300.0f + 11700.0f * t);
+        stereo.setSmearAmount(t);
+        stereo.processStereo(sweepInL.data(), sweepInR.data(), sweepOutL.data(), sweepOutR.data(), kSweepBlock);
+        if (!finiteBuffer(sweepOutL) || !finiteBuffer(sweepOutR)) {
+            return fail("parameter sweep produced non-finite output");
+        }
+    }
+    const auto elapsedMs =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+    if (elapsedMs > 1500) {
+        return fail("parameter sweep processing too slow");
     }
 
     std::cout << "test_orbit_delay: OK\n";

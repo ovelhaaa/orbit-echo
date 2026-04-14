@@ -128,18 +128,28 @@
             <output id="orbitOut">0.00</output>
           </div>
           <div class="row">
-            <label for="offsetSamples">Offset (samples)</label>
-            <input id="offsetSamples" type="range" min="-24000" max="24000" step="1" value="0" />
-            <output id="offsetSamplesOut">0</output>
+            <label for="offsetSamples">Offset (ms)</label>
+            <input id="offsetSamples" type="range" min="-500" max="500" step="0.5" value="0" />
+            <output id="offsetSamplesOut">0.0 ms</output>
           </div>
           <div class="row">
-            <label for="stereoSpread">Stereo spread</label>
-            <input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.00" />
-            <output id="stereoSpreadOut">0.00</output>
+            <label for="stereoSpread">Stereo spread (ms)</label>
+            <input id="stereoSpread" type="range" min="0" max="100" step="0.1" value="0.0" />
+            <output id="stereoSpreadOut">0.0 ms</output>
+          </div>
+          <div class="row">
+            <label for="inputGain">Input gain (dB)</label>
+            <input id="inputGain" type="range" min="-24" max="12" step="0.1" value="0.0" />
+            <output id="inputGainOut">0.0 dB</output>
+          </div>
+          <div class="row">
+            <label for="outputGain">Output gain (dB)</label>
+            <input id="outputGain" type="range" min="-24" max="12" step="0.1" value="0.0" />
+            <output id="outputGainOut">0.0 dB</output>
           </div>
           <div class="row">
             <label for="toneHz">Tone (Hz)</label>
-            <input id="toneHz" type="range" min="200" max="18000" step="50" value="1800" />
+            <input id="toneHz" type="range" min="0" max="1" step="0.001" value="0.305" />
             <output id="toneHzOut">1800</output>
           </div>
           <div class="row">

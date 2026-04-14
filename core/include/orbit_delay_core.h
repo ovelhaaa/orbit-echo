@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
 #include "core/include/dsp_delay_line.h"
@@ -63,8 +64,11 @@ private:
         float stereoSpread = 0.0f;
         float feedback = 0.35f;
         float mix = 0.35f;
+        float inputGain = 1.0f;
+        float outputGain = 1.0f;
     };
 
+    void applyPendingParamsIfNeeded();
     void syncDspParams();
     void updateSmoothedTargetsIfDirty();
     SmoothedParams advanceSmoothers();
@@ -101,6 +105,7 @@ private:
     static constexpr float kSmoothTempoDelayMs = 25.0f;
     static constexpr float kSmoothSmearMs = 35.0f;
     static constexpr float kSmoothStereoSpreadMs = 8.0f;
+    static constexpr float kSmoothGainMs = 15.0f;
 
     float processChannel(float input, DelayLine& delay, BiquadLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
                          const SmoothedParams& params, float spread);
@@ -127,6 +132,7 @@ private:
     ReadMode readMode_ = ReadMode::Orbit;
     FeedbackPreset feedbackPreset_ = FeedbackPreset::Default;
     bool initialized_ = false;
+    uint32_t appliedParamVersion_ = 0u;
 
     bool sampleRateDirty_ = true;
     bool lowpassDirty_ = true;
@@ -145,6 +151,26 @@ private:
     LinearSmoother tempoDelaySm_;
     LinearSmoother smearSm_;
     LinearSmoother stereoSpreadSm_;
+    LinearSmoother inputGainSm_;
+    LinearSmoother outputGainSm_;
+
+    std::atomic<uint32_t> pendingParamVersion_{1u};
+    std::atomic<float> pendingSampleRate_{kFallbackSampleRate};
+    std::atomic<float> pendingOrbit_{0.5f};
+    std::atomic<float> pendingOffsetSamples_{1200.0f};
+    std::atomic<float> pendingTempoBpm_{120.0f};
+    std::atomic<float> pendingNoteDivision_{1.0f};
+    std::atomic<float> pendingStereoSpread_{0.0f};
+    std::atomic<float> pendingFeedback_{0.35f};
+    std::atomic<float> pendingMix_{0.35f};
+    std::atomic<float> pendingInputGain_{1.0f};
+    std::atomic<float> pendingOutputGain_{1.0f};
+    std::atomic<float> pendingToneHz_{8000.0f};
+    std::atomic<float> pendingSmear_{0.0f};
+    std::atomic<uint32_t> pendingDiffuserStages_{2u};
+    std::atomic<bool> pendingDcBlockEnabled_{false};
+    std::atomic<bool> pendingShimmerModeEnabled_{true};
+    std::atomic<uint32_t> pendingReadMode_{static_cast<uint32_t>(ReadMode::Orbit)};
 
     DelayLine delayL_;
     DelayLine delayR_;
