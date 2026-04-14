@@ -209,8 +209,6 @@ async function ensurePreviewGraph() {
   drySource.connect(dryGain).connect(audioCtx.destination);
   wetSource.connect(wetGain).connect(audioCtx.destination);
 
-  els.preview.muted = true;
-  wetElement.muted = true;
   previewGraph.audioCtx = audioCtx;
   previewGraph.dryElement = els.preview;
   previewGraph.wetElement = wetElement;
