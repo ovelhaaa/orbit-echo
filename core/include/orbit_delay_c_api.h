@@ -84,6 +84,7 @@ bool orbit_set_input_gain(OrbitDelayHandle* handle, float value);
 bool orbit_set_output_gain(OrbitDelayHandle* handle, float value);
 bool orbit_set_tone_hz(OrbitDelayHandle* handle, float value);
 bool orbit_set_smear_amount(OrbitDelayHandle* handle, float value);
+bool orbit_set_shimmer_mode(OrbitDelayHandle* handle, bool enabled);
 bool orbit_set_diffuser_stages(OrbitDelayHandle* handle, uint32_t value);
 bool orbit_set_dc_block_enabled(OrbitDelayHandle* handle, bool enabled);
 bool orbit_set_read_mode(OrbitDelayHandle* handle, OrbitReadMode mode);

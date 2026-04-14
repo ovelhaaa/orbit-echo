@@ -165,6 +165,14 @@ bool orbit_set_smear_amount(OrbitDelayHandle* handle, float value) {
     return true;
 }
 
+bool orbit_set_shimmer_mode(OrbitDelayHandle* handle, bool enabled) {
+    if (handle == nullptr) {
+        return false;
+    }
+    handle->core.setShimmerMode(enabled);
+    return true;
+}
+
 bool orbit_set_diffuser_stages(OrbitDelayHandle* handle, uint32_t value) {
     if (handle == nullptr) {
         return false;
