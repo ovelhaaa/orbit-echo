@@ -274,7 +274,12 @@ void OrbitDelayCore::setSmearAmount(float value) {
 }
 
 void OrbitDelayCore::setShimmerMode(bool enabled) {
-    shimmerModeEnabled_ = enabled;
+    if (shimmerModeEnabled_ != enabled) {
+        shimmerModeEnabled_ = enabled;
+        // Clear diffuser state to avoid bursts of old audio when re-enabling
+        diffuserL_.reset();
+        diffuserR_.reset();
+    }
 }
 
 void OrbitDelayCore::setLowpassCutoffHz(float value) {
