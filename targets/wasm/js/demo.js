@@ -9,6 +9,7 @@ const TAP_BUFFER_SIZE = 8;
 const TAP_MIN_BPM = 20;
 const TAP_MAX_BPM = 240;
 const TAP_EXPIRE_MS = 4000;
+const BYPASS_XFADE_SECONDS = 0.03;
 const REPEAT_STORAGE_KEY = 'orbit-echo:transport:repeat-mode';
 const PROJECT_REPEAT_PREFIX = 'orbit-echo:transport:repeat-project:';
 
@@ -74,6 +75,7 @@ const els = {
   dcBlockEnabled: document.getElementById('dcBlockEnabled'),
   shimmerMode: document.getElementById('shimmerMode'),
   playPauseBtn: document.getElementById('playPauseBtn'),
+  bypassBtn: document.getElementById('bypassBtn'),
   repeatBtn: document.getElementById('repeatBtn'),
   transportState: document.getElementById('transportState')
 };
@@ -109,6 +111,23 @@ const repeatState = {
   monitorId: 0
 };
 
+const bypassState = {
+  enabled: false
+};
+
+const previewGraph = {
+  audioCtx: null,
+  dryElement: null,
+  wetElement: null,
+  dryGain: null,
+  wetGain: null
+};
+
+const previewUrls = {
+  dry: '',
+  wet: ''
+};
+
 let uiSampleRate = DEFAULT_UI_SAMPLE_RATE;
 
 function getProjectRepeatKey() {
@@ -140,9 +159,10 @@ function updateTransportStateLabel() {
   }
 
   const repeatLabel = repeatState.mode === 'on' ? 'Repeat On' : 'Repeat Off';
+  const fxLabel = bypassState.enabled ? 'FX OFF (Bypass)' : 'FX ON';
   const now = Number.isFinite(els.preview.currentTime) ? els.preview.currentTime : 0;
   const end = Number.isFinite(repeatState.loopEnd) ? repeatState.loopEnd : 0;
-  els.transportState.textContent = `${els.preview.paused ? 'Pause' : 'Play'} · ${repeatLabel} · ${now.toFixed(2)}s / ${end.toFixed(2)}s`;
+  els.transportState.textContent = `${els.preview.paused ? 'Pause' : 'Play'} · ${fxLabel} · ${repeatLabel} · ${now.toFixed(2)}s / ${end.toFixed(2)}s`;
 }
 
 function updateRepeatUi() {
@@ -161,6 +181,73 @@ function updatePlayPauseUi() {
   if (!els.playPauseBtn) return;
   els.playPauseBtn.textContent = els.preview.paused ? '▶ Play' : '⏸ Pause';
   updateTransportStateLabel();
+}
+
+function updateBypassUi() {
+  if (!els.bypassBtn) return;
+  const isBypassed = bypassState.enabled;
+  els.bypassBtn.classList.toggle('is-bypass', isBypassed);
+  els.bypassBtn.classList.toggle('is-active', !isBypassed);
+  els.bypassBtn.setAttribute('aria-pressed', isBypassed ? 'true' : 'false');
+  els.bypassBtn.textContent = isBypassed ? 'FX OFF' : 'FX ON';
+  els.bypassBtn.title = isBypassed ? 'Bypass global: ligado' : 'Bypass global: desligado';
+  updateTransportStateLabel();
+}
+
+async function ensurePreviewGraph() {
+  if (previewGraph.audioCtx) return;
+  const audioCtx = new AudioContext();
+  const drySource = audioCtx.createMediaElementSource(els.preview);
+  const wetElement = new Audio();
+  wetElement.preload = 'auto';
+  wetElement.crossOrigin = 'anonymous';
+  const wetSource = audioCtx.createMediaElementSource(wetElement);
+  const dryGain = audioCtx.createGain();
+  const wetGain = audioCtx.createGain();
+  dryGain.gain.value = 0;
+  wetGain.gain.value = 1;
+  drySource.connect(dryGain).connect(audioCtx.destination);
+  wetSource.connect(wetGain).connect(audioCtx.destination);
+
+  els.preview.muted = true;
+  wetElement.muted = true;
+  previewGraph.audioCtx = audioCtx;
+  previewGraph.dryElement = els.preview;
+  previewGraph.wetElement = wetElement;
+  previewGraph.dryGain = dryGain;
+  previewGraph.wetGain = wetGain;
+}
+
+function applyBypassCrossfade() {
+  if (!previewGraph.audioCtx || !previewGraph.dryGain || !previewGraph.wetGain) return;
+  const now = previewGraph.audioCtx.currentTime;
+  const dryTarget = bypassState.enabled ? 1 : 0;
+  const wetTarget = bypassState.enabled ? 0 : 1;
+  previewGraph.dryGain.gain.cancelScheduledValues(now);
+  previewGraph.wetGain.gain.cancelScheduledValues(now);
+  previewGraph.dryGain.gain.setValueAtTime(previewGraph.dryGain.gain.value, now);
+  previewGraph.wetGain.gain.setValueAtTime(previewGraph.wetGain.gain.value, now);
+  previewGraph.dryGain.gain.linearRampToValueAtTime(dryTarget, now + BYPASS_XFADE_SECONDS);
+  previewGraph.wetGain.gain.linearRampToValueAtTime(wetTarget, now + BYPASS_XFADE_SECONDS);
+}
+
+function syncWetPreviewTime() {
+  if (!previewGraph.wetElement || !els.preview.src) return;
+  const dryTime = Number.isFinite(els.preview.currentTime) ? els.preview.currentTime : 0;
+  if (Math.abs((previewGraph.wetElement.currentTime || 0) - dryTime) > 0.02) {
+    previewGraph.wetElement.currentTime = dryTime;
+  }
+}
+
+async function toggleBypassMode() {
+  if (!els.preview.src || !previewGraph.wetElement?.src) return;
+  await ensurePreviewGraph();
+  if (previewGraph.audioCtx?.state === 'suspended') {
+    await previewGraph.audioCtx.resume();
+  }
+  bypassState.enabled = !bypassState.enabled;
+  applyBypassCrossfade();
+  updateBypassUi();
 }
 
 function refreshLoopPoints() {
@@ -212,15 +299,28 @@ function initTransport() {
   repeatState.mode = readStoredRepeatMode();
   updateRepeatUi();
   updatePlayPauseUi();
+  updateBypassUi();
 
   els.playPauseBtn?.addEventListener('click', async () => {
     if (!els.preview.src) return;
+    await ensurePreviewGraph();
+    if (previewGraph.audioCtx?.state === 'suspended') {
+      await previewGraph.audioCtx.resume();
+    }
     if (els.preview.paused) {
+      syncWetPreviewTime();
+      previewGraph.wetElement?.play().catch(() => {});
       await els.preview.play();
     } else {
+      previewGraph.wetElement?.pause();
       els.preview.pause();
     }
     updatePlayPauseUi();
+  });
+
+  els.bypassBtn?.addEventListener('click', async () => {
+    if (!els.preview.src) return;
+    await toggleBypassMode();
   });
 
   els.repeatBtn?.addEventListener('click', () => {
@@ -229,13 +329,19 @@ function initTransport() {
   });
 
   els.preview.addEventListener('play', () => {
+    syncWetPreviewTime();
+    previewGraph.wetElement?.play().catch(() => {});
     updatePlayPauseUi();
     if (repeatState.mode === 'on') {
       monitorRepeatLoop();
     }
   });
-  els.preview.addEventListener('pause', updatePlayPauseUi);
+  els.preview.addEventListener('pause', () => {
+    previewGraph.wetElement?.pause();
+    updatePlayPauseUi();
+  });
   els.preview.addEventListener('seeked', () => {
+    syncWetPreviewTime();
     if (repeatState.mode === 'on' && repeatState.loopEnd > 0 && els.preview.currentTime >= repeatState.loopEnd) {
       els.preview.currentTime = repeatState.loopStart;
     }
@@ -244,6 +350,7 @@ function initTransport() {
   els.preview.addEventListener('loadedmetadata', () => {
     refreshLoopPoints();
     els.playPauseBtn.disabled = false;
+    if (els.bypassBtn) els.bypassBtn.disabled = !previewGraph.wetElement?.src;
     els.repeatBtn.disabled = false;
     repeatState.projectKey = getProjectRepeatKey();
     repeatState.mode = readStoredRepeatMode();
@@ -251,6 +358,8 @@ function initTransport() {
   });
   els.preview.addEventListener('timeupdate', updateTransportStateLabel);
   els.preview.addEventListener('ended', () => {
+    previewGraph.wetElement?.pause();
+    syncWetPreviewTime();
     if (repeatState.mode === 'on' && repeatState.loopEnd > 0) {
       els.preview.currentTime = repeatState.loopStart;
       els.preview.play().catch(() => {});
@@ -267,6 +376,15 @@ function initTransport() {
     event.preventDefault();
     if (!els.preview.src) return;
     toggleRepeatMode();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.repeat) return;
+    const key = event.key.toLowerCase();
+    if (key !== 'b') return;
+    event.preventDefault();
+    if (!els.preview.src) return;
+    toggleBypassMode().catch(() => {});
   });
 }
 
@@ -643,12 +761,25 @@ els.processBtn.addEventListener('click', async () => {
     els.status.textContent = 'Processando com Orbit Echo...';
     const { outL, outR } = processStereoBuffer(left, right);
 
+    const dryWavBlob = encodeWavFromFloatStereo(left, right, sampleRate);
     const wavBlob = encodeWavFromFloatStereo(outL, outR, sampleRate);
-    const url = URL.createObjectURL(wavBlob);
+    const dryUrl = URL.createObjectURL(dryWavBlob);
+    const wetUrl = URL.createObjectURL(wavBlob);
+    if (previewUrls.dry) URL.revokeObjectURL(previewUrls.dry);
+    if (previewUrls.wet) URL.revokeObjectURL(previewUrls.wet);
+    previewUrls.dry = dryUrl;
+    previewUrls.wet = wetUrl;
 
-    els.preview.src = url;
+    await ensurePreviewGraph();
+    els.preview.src = dryUrl;
+    if (previewGraph.wetElement) previewGraph.wetElement.src = wetUrl;
     els.preview.currentTime = 0;
-    els.downloadLink.href = url;
+    if (previewGraph.wetElement) previewGraph.wetElement.currentTime = 0;
+    applyBypassCrossfade();
+    if (els.bypassBtn) els.bypassBtn.disabled = false;
+    updateBypassUi();
+
+    els.downloadLink.href = wetUrl;
     els.downloadLink.hidden = false;
     refreshLoopPoints();
     els.downloadLink.textContent = 'Baixar WAV processado';
@@ -683,4 +814,6 @@ initWasm().catch((err) => {
 
 window.addEventListener('beforeunload', () => {
   if (api) api.free();
+  if (previewUrls.dry) URL.revokeObjectURL(previewUrls.dry);
+  if (previewUrls.wet) URL.revokeObjectURL(previewUrls.wet);
 });

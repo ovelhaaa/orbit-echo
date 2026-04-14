@@ -72,6 +72,11 @@
         background: #145533;
         color: #dcffe9;
       }
+      .transport button.is-bypass {
+        border-color: #ffad4a;
+        background: #5c3310;
+        color: #ffe6c8;
+      }
       .transport-state {
         color: #98a7c9;
         font-size: 0.85rem;
@@ -217,6 +222,7 @@
 
         <div class="transport">
           <button id="playPauseBtn" type="button" disabled>▶ Play</button>
+          <button id="bypassBtn" type="button" disabled title="Bypass global" aria-pressed="false">FX ON</button>
           <button id="repeatBtn" type="button" disabled title="Repeat: Off (atalho R)" aria-pressed="false">⟲ Repeat Off</button>
           <span id="transportState" class="transport-state">Sem áudio carregado.</span>
         </div>
