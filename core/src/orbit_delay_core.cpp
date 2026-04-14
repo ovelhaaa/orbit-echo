@@ -56,7 +56,135 @@ float computeTempoDelaySamples(float sampleRate, float tempoBpm, float noteDivis
 }
 } // namespace
 
+void OrbitDelayCore::applyPendingParamsIfNeeded() {
+    const uint32_t version = pendingParamVersion_.load(std::memory_order_acquire);
+    if (version == appliedParamVersion_) {
+        return;
+    }
+
+    const float nextSampleRate = pendingSampleRate_.load(std::memory_order_relaxed);
+    const float nextOrbit = pendingOrbit_.load(std::memory_order_relaxed);
+    const float nextOffset = pendingOffsetSamples_.load(std::memory_order_relaxed);
+    const float nextTempoBpm = pendingTempoBpm_.load(std::memory_order_relaxed);
+    const float nextNoteDivision = pendingNoteDivision_.load(std::memory_order_relaxed);
+    const float nextStereoSpread = pendingStereoSpread_.load(std::memory_order_relaxed);
+    const float nextFeedback = pendingFeedback_.load(std::memory_order_relaxed);
+    const float nextMix = pendingMix_.load(std::memory_order_relaxed);
+    const float nextInputGain = pendingInputGain_.load(std::memory_order_relaxed);
+    const float nextOutputGain = pendingOutputGain_.load(std::memory_order_relaxed);
+    const float nextToneHz = pendingToneHz_.load(std::memory_order_relaxed);
+    const float nextSmear = pendingSmear_.load(std::memory_order_relaxed);
+    const uint32_t nextDiffuserStages = pendingDiffuserStages_.load(std::memory_order_relaxed);
+    const bool nextDcBlock = pendingDcBlockEnabled_.load(std::memory_order_relaxed);
+    const bool nextShimmer = pendingShimmerModeEnabled_.load(std::memory_order_relaxed);
+    const ReadMode nextReadMode = static_cast<ReadMode>(pendingReadMode_.load(std::memory_order_relaxed));
+
+    bool smoothTargetsChanged = false;
+    bool tempoInputsChanged = false;
+
+    const float clampedSampleRate = clampf(sanitizeFinite(nextSampleRate, kFallbackSampleRate), 1.0f, 384000.0f);
+    if (sampleRate_ != clampedSampleRate) {
+        sampleRate_ = clampedSampleRate;
+        sampleRateDirty_ = true;
+        tempoInputsChanged = true;
+    }
+
+    const float clampedOrbit = clampf(sanitizeFinite(nextOrbit, orbit_), 0.25f, 3.0f);
+    if (orbit_ != clampedOrbit) {
+        orbit_ = clampedOrbit;
+        smoothTargetsChanged = true;
+    }
+    const float clampedOffset = clampf(sanitizeFinite(nextOffset, offsetSamples_), -200000.0f, 200000.0f);
+    if (offsetSamples_ != clampedOffset) {
+        offsetSamples_ = clampedOffset;
+        smoothTargetsChanged = true;
+    }
+    const float clampedTempoBpm = clampf(sanitizeFinite(nextTempoBpm, tempoBpm_), kMinTempoBpm, kMaxTempoBpm);
+    if (tempoBpm_ != clampedTempoBpm) {
+        tempoBpm_ = clampedTempoBpm;
+        tempoInputsChanged = true;
+    }
+    const float clampedNoteDivision = clampf(sanitizeFinite(nextNoteDivision, noteDivision_), kMinNoteDivision, kMaxNoteDivision);
+    if (noteDivision_ != clampedNoteDivision) {
+        noteDivision_ = clampedNoteDivision;
+        tempoInputsChanged = true;
+    }
+    const float clampedSpread = clampf(sanitizeFinite(nextStereoSpread, stereoSpread_), 0.0f, kStereoSpreadMax);
+    if (stereoSpread_ != clampedSpread) {
+        stereoSpread_ = clampedSpread;
+        smoothTargetsChanged = true;
+    }
+    const float clampedFeedback = clampf(sanitizeFinite(nextFeedback, feedback_), 0.0f, 0.95f);
+    if (feedback_ != clampedFeedback) {
+        feedback_ = clampedFeedback;
+        smoothTargetsChanged = true;
+    }
+    const float clampedMix = clampf(sanitizeFinite(nextMix, mix_), 0.0f, 1.0f);
+    if (mix_ != clampedMix) {
+        mix_ = clampedMix;
+        smoothTargetsChanged = true;
+    }
+    const float clampedInputGain = clampf(sanitizeFinite(nextInputGain, inputGain_), 0.0f, 4.0f);
+    if (inputGain_ != clampedInputGain) {
+        inputGain_ = clampedInputGain;
+        smoothTargetsChanged = true;
+    }
+    const float clampedOutputGain = clampf(sanitizeFinite(nextOutputGain, outputGain_), 0.0f, 4.0f);
+    if (outputGain_ != clampedOutputGain) {
+        outputGain_ = clampedOutputGain;
+        smoothTargetsChanged = true;
+    }
+    const float clampedToneHz = clampf(sanitizeFinite(nextToneHz, toneHz_), 300.0f, 12000.0f);
+    if (toneHz_ != clampedToneHz) {
+        toneHz_ = clampedToneHz;
+        smoothTargetsChanged = true;
+    }
+    const float clampedSmear = clampf(sanitizeFinite(nextSmear, smear_), 0.0f, 1.0f);
+    if (smear_ != clampedSmear) {
+        smear_ = clampedSmear;
+        smoothTargetsChanged = true;
+    }
+    const uint32_t clampedStages = (nextDiffuserStages > AllpassDiffuser::kMaxStages) ? AllpassDiffuser::kMaxStages : nextDiffuserStages;
+    if (diffuserStages_ != clampedStages) {
+        diffuserStages_ = clampedStages;
+        diffuserDirty_ = true;
+    }
+    dcBlockEnabled_ = nextDcBlock;
+    if (shimmerModeEnabled_ != nextShimmer) {
+        shimmerModeEnabled_ = nextShimmer;
+        diffuserL_.reset();
+        diffuserR_.reset();
+    }
+
+    if (readMode_ != nextReadMode) {
+        readMode_ = nextReadMode;
+        if (readMode_ == ReadMode::AccidentalReverse) {
+            feedbackPreset_ = FeedbackPreset::ReverseLegacy;
+            toneHz_ = kReverseLegacyToneHz;
+            pendingToneHz_.store(toneHz_, std::memory_order_relaxed);
+            smoothTargetsChanged = true;
+        } else {
+            feedbackPreset_ = FeedbackPreset::Default;
+        }
+        lowpassDirty_ = true;
+    }
+
+    if (tempoInputsChanged) {
+        const float nextTempoDelay = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
+        if (tempoDelaySamples_ != nextTempoDelay) {
+            tempoDelaySamples_ = nextTempoDelay;
+            smoothTargetsChanged = true;
+        }
+    }
+
+    if (smoothTargetsChanged) {
+        smoothTargetsDirty_ = true;
+    }
+    appliedParamVersion_ = version;
+}
+
 void OrbitDelayCore::syncDspParams() {
+    applyPendingParamsIfNeeded();
     if (sampleRateDirty_) {
         lowpassL_.setSampleRate(sampleRate_);
         lowpassR_.setSampleRate(sampleRate_);
@@ -70,6 +198,8 @@ void OrbitDelayCore::syncDspParams() {
         tempoDelaySm_.configure(sampleRate_, kSmoothTempoDelayMs);
         smearSm_.configure(sampleRate_, kSmoothSmearMs);
         stereoSpreadSm_.configure(sampleRate_, kSmoothStereoSpreadMs);
+        inputGainSm_.configure(sampleRate_, kSmoothGainMs);
+        outputGainSm_.configure(sampleRate_, kSmoothGainMs);
         tempoDelaySamples_ = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
         smoothTargetsDirty_ = true;
         sampleRateDirty_ = false;
@@ -104,6 +234,8 @@ void OrbitDelayCore::updateSmoothedTargetsIfDirty() {
     stereoSpreadSm_.setTarget(stereoSpread_);
     feedbackSm_.setTarget(feedback_);
     mixSm_.setTarget(mix_);
+    inputGainSm_.setTarget(inputGain_);
+    outputGainSm_.setTarget(outputGain_);
     toneSm_.setTarget(toneHz_);
     smearSm_.setTarget(smear_);
     smoothTargetsDirty_ = false;
@@ -117,6 +249,8 @@ OrbitDelayCore::SmoothedParams OrbitDelayCore::advanceSmoothers() {
     params.stereoSpread = stereoSpreadSm_.next();
     params.feedback = feedbackSm_.next();
     params.mix = mixSm_.next();
+    params.inputGain = inputGainSm_.next();
+    params.outputGain = outputGainSm_.next();
 
     const float smoothedToneHz = toneSm_.next();
     const float smoothedSmear = smearSm_.next();
@@ -176,6 +310,8 @@ void OrbitDelayCore::reset(float sampleRate) {
     stereoSpreadSm_.reset(stereoSpread_);
     feedbackSm_.reset(feedback_);
     mixSm_.reset(mix_);
+    inputGainSm_.reset(inputGain_);
+    outputGainSm_.reset(outputGain_);
     toneSm_.reset(toneHz_);
     smearSm_.reset(smear_);
     appliedToneHz_ = toneHz_;
@@ -183,6 +319,7 @@ void OrbitDelayCore::reset(float sampleRate) {
     heavyParamCadenceCountdown_ = 1u;
     heavyParamCadenceHit_ = false;
     smoothTargetsDirty_ = false;
+    appliedParamVersion_ = pendingParamVersion_.load(std::memory_order_acquire);
     delayL_.clear();
     delayR_.clear();
     lowpassL_.reset();
@@ -212,74 +349,68 @@ bool OrbitDelayCore::attachBuffers(float* leftBuffer, uint32_t leftSize, float* 
 void OrbitDelayCore::setSampleRate(float sr) {
     const float sanitized = sanitizeFinite(sr, kFallbackSampleRate);
     const float clamped = (sanitized <= 1.0f) ? kFallbackSampleRate : clampf(sanitized, 1.0f, 384000.0f);
-    if (sampleRate_ != clamped) {
-        sampleRate_ = clamped;
-        sampleRateDirty_ = true;
-    }
+    pendingSampleRate_.store(clamped, std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setOrbit(float value) {
-    orbit_ = clampf(sanitizeFinite(value, orbit_), 0.25f, 3.0f);
-    smoothTargetsDirty_ = true;
+    pendingOrbit_.store(clampf(sanitizeFinite(value, orbit_), 0.25f, 3.0f), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setOffsetSamples(float value) {
-    offsetSamples_ = clampf(sanitizeFinite(value, offsetSamples_), -200000.0f, 200000.0f);
-    smoothTargetsDirty_ = true;
+    pendingOffsetSamples_.store(clampf(sanitizeFinite(value, offsetSamples_), -200000.0f, 200000.0f), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setTempoBpm(float value) {
-    tempoBpm_ = clampf(sanitizeFinite(value, tempoBpm_), kMinTempoBpm, kMaxTempoBpm);
-    tempoDelaySamples_ = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
-    smoothTargetsDirty_ = true;
+    pendingTempoBpm_.store(clampf(sanitizeFinite(value, tempoBpm_), kMinTempoBpm, kMaxTempoBpm), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setNoteDivision(float value) {
-    noteDivision_ = clampf(sanitizeFinite(value, noteDivision_), kMinNoteDivision, kMaxNoteDivision);
-    tempoDelaySamples_ = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
-    smoothTargetsDirty_ = true;
+    pendingNoteDivision_.store(clampf(sanitizeFinite(value, noteDivision_), kMinNoteDivision, kMaxNoteDivision), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setStereoSpread(float value) {
-    stereoSpread_ = clampf(sanitizeFinite(value, stereoSpread_), 0.0f, kStereoSpreadMax);
-    smoothTargetsDirty_ = true;
+    pendingStereoSpread_.store(clampf(sanitizeFinite(value, stereoSpread_), 0.0f, kStereoSpreadMax), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setFeedback(float value) {
-    feedback_ = clampf(sanitizeFinite(value, feedback_), 0.0f, 0.95f);
-    smoothTargetsDirty_ = true;
+    pendingFeedback_.store(clampf(sanitizeFinite(value, feedback_), 0.0f, 0.95f), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setMix(float value) {
-    mix_ = clampf(sanitizeFinite(value, mix_), 0.0f, 1.0f);
-    smoothTargetsDirty_ = true;
+    pendingMix_.store(clampf(sanitizeFinite(value, mix_), 0.0f, 1.0f), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setInputGain(float value) {
-    inputGain_ = clampf(sanitizeFinite(value, inputGain_), 0.0f, 4.0f);
+    pendingInputGain_.store(clampf(sanitizeFinite(value, inputGain_), 0.0f, 4.0f), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setOutputGain(float value) {
-    outputGain_ = clampf(sanitizeFinite(value, outputGain_), 0.0f, 4.0f);
+    pendingOutputGain_.store(clampf(sanitizeFinite(value, outputGain_), 0.0f, 4.0f), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setToneHz(float value) {
-    toneHz_ = clampf(sanitizeFinite(value, toneHz_), 300.0f, 12000.0f);
-    smoothTargetsDirty_ = true;
+    pendingToneHz_.store(clampf(sanitizeFinite(value, toneHz_), 300.0f, 12000.0f), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setSmearAmount(float value) {
-    smear_ = clampf(sanitizeFinite(value, smear_), 0.0f, 1.0f);
-    smoothTargetsDirty_ = true;
+    pendingSmear_.store(clampf(sanitizeFinite(value, smear_), 0.0f, 1.0f), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setShimmerMode(bool enabled) {
-    if (shimmerModeEnabled_ != enabled) {
-        shimmerModeEnabled_ = enabled;
-        // Clear diffuser state to avoid bursts of old audio when re-enabling
-        diffuserL_.reset();
-        diffuserR_.reset();
-    }
+    pendingShimmerModeEnabled_.store(enabled, std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setLowpassCutoffHz(float value) {
@@ -291,27 +422,19 @@ void OrbitDelayCore::setDiffusion(float value) {
 }
 
 void OrbitDelayCore::setDiffuserStages(uint32_t count) {
-    diffuserStages_ = (count > AllpassDiffuser::kMaxStages) ? AllpassDiffuser::kMaxStages : count;
-    diffuserDirty_ = true;
+    const uint32_t clamped = (count > AllpassDiffuser::kMaxStages) ? AllpassDiffuser::kMaxStages : count;
+    pendingDiffuserStages_.store(clamped, std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setDcBlockEnabled(bool enabled) {
-    dcBlockEnabled_ = enabled;
+    pendingDcBlockEnabled_.store(enabled, std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 void OrbitDelayCore::setReadMode(ReadMode mode) {
-    if (readMode_ == mode) {
-        return;
-    }
-    readMode_ = mode;
-    if (readMode_ == ReadMode::AccidentalReverse) {
-        feedbackPreset_ = FeedbackPreset::ReverseLegacy;
-        toneHz_ = kReverseLegacyToneHz;
-        smoothTargetsDirty_ = true;
-    } else {
-        feedbackPreset_ = FeedbackPreset::Default;
-    }
-    lowpassDirty_ = true;
+    pendingReadMode_.store(static_cast<uint32_t>(mode), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
 float OrbitDelayCore::processChannelFast(float input, DelayLine& delay, BiquadLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
@@ -363,7 +486,7 @@ float OrbitDelayCore::processChannelFast(float input, DelayLine& delay, BiquadLo
 
     const float fb = filteredWet * params.feedback;
 
-    float toBuffer = sanitizedInput * inputGain_ + fb;
+    float toBuffer = sanitizedInput * params.inputGain + fb;
     if (!isFiniteSafe(toBuffer)) {
         toBuffer = 0.0f;
     }
@@ -378,7 +501,7 @@ float OrbitDelayCore::processChannelFast(float input, DelayLine& delay, BiquadLo
 
     delay.write(toBuffer);
 
-    const float out = (sanitizedInput * (1.0f - params.mix) + wet * params.mix) * outputGain_;
+    const float out = (sanitizedInput * (1.0f - params.mix) + wet * params.mix) * params.outputGain;
     return isFiniteSafe(out) ? out : 0.0f;
 }
 
