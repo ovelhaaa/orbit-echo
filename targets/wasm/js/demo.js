@@ -199,6 +199,8 @@ async function ensurePreviewGraph() {
   const audioCtx = new AudioContext();
   const drySource = audioCtx.createMediaElementSource(els.preview);
   const wetElement = new Audio();
+  wetElement.style.display = 'none';
+  document.body.appendChild(wetElement);
   wetElement.preload = 'auto';
   wetElement.crossOrigin = 'anonymous';
   const wetSource = audioCtx.createMediaElementSource(wetElement);
