@@ -55,6 +55,27 @@
         gap: 12px;
         margin-top: 12px;
       }
+      .transport {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .transport button {
+        border-color: #3c4d76;
+        background: #202d4a;
+        padding: 8px 12px;
+      }
+      .transport button.is-active {
+        border-color: #51ff9f;
+        background: #145533;
+        color: #dcffe9;
+      }
+      .transport-state {
+        color: #98a7c9;
+        font-size: 0.85rem;
+      }
       #status { font-size: 0.95rem; }
       audio { width: 100%; margin-top: 12px; }
       a { color: #80a5ff; }
@@ -182,6 +203,12 @@
         <div class="actions">
           <button id="processBtn" disabled>Processar áudio</button>
           <a id="downloadLink" hidden download="orbit-echo-processed.wav">Baixar WAV processado</a>
+        </div>
+
+        <div class="transport">
+          <button id="playPauseBtn" type="button" disabled>▶ Play</button>
+          <button id="repeatBtn" type="button" disabled title="Repeat: Off (atalho R)" aria-pressed="false">⟲ Repeat Off</button>
+          <span id="transportState" class="transport-state">Sem áudio carregado.</span>
         </div>
 
         <p id="status">Inicializando WASM...</p>
