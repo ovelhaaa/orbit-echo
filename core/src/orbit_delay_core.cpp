@@ -48,6 +48,14 @@ float OrbitDelayCore::dryPassThrough(float input) const {
     return sanitizeFinite(input * outputGain_, 0.0f);
 }
 
+namespace {
+float computeTempoDelaySamples(float sampleRate, float tempoBpm, float noteDivision) {
+    const float beatMs = 60000.0f / tempoBpm;
+    const float delayMs = beatMs * noteDivision;
+    return (delayMs * sampleRate) / 1000.0f;
+}
+} // namespace
+
 void OrbitDelayCore::syncDspParams() {
     if (sampleRateDirty_) {
         lowpassL_.setSampleRate(sampleRate_);
@@ -59,8 +67,11 @@ void OrbitDelayCore::syncDspParams() {
         toneSm_.configure(sampleRate_, kSmoothToneMs);
         orbitSm_.configure(sampleRate_, kSmoothOrbitMs);
         offsetSm_.configure(sampleRate_, kSmoothOffsetMs);
+        tempoDelaySm_.configure(sampleRate_, kSmoothTempoDelayMs);
         smearSm_.configure(sampleRate_, kSmoothSmearMs);
         stereoSpreadSm_.configure(sampleRate_, kSmoothStereoSpreadMs);
+        tempoDelaySamples_ = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
+        smoothTargetsDirty_ = true;
         sampleRateDirty_ = false;
         lowpassDirty_ = true;
     }
@@ -88,6 +99,7 @@ void OrbitDelayCore::updateSmoothedTargetsIfDirty() {
     }
     orbitSm_.setTarget(orbit_);
     offsetSm_.setTarget(offsetSamples_);
+    tempoDelaySm_.setTarget(tempoDelaySamples_);
     stereoSpreadSm_.setTarget(stereoSpread_);
     feedbackSm_.setTarget(feedback_);
     mixSm_.setTarget(mix_);
@@ -100,6 +112,7 @@ OrbitDelayCore::SmoothedParams OrbitDelayCore::advanceSmoothers() {
     SmoothedParams params;
     params.orbit = orbitSm_.next();
     params.offsetSamples = offsetSm_.next();
+    params.tempoDelaySamples = tempoDelaySm_.next();
     params.stereoSpread = stereoSpreadSm_.next();
     params.feedback = feedbackSm_.next();
     params.mix = mixSm_.next();
@@ -149,6 +162,8 @@ void OrbitDelayCore::reset(float sampleRate) {
     syncDspParams();
     orbitSm_.reset(orbit_);
     offsetSm_.reset(offsetSamples_);
+    tempoDelaySamples_ = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
+    tempoDelaySm_.reset(tempoDelaySamples_);
     stereoSpreadSm_.reset(stereoSpread_);
     feedbackSm_.reset(feedback_);
     mixSm_.reset(mix_);
@@ -201,6 +216,18 @@ void OrbitDelayCore::setOrbit(float value) {
 
 void OrbitDelayCore::setOffsetSamples(float value) {
     offsetSamples_ = clampf(sanitizeFinite(value, offsetSamples_), -200000.0f, 200000.0f);
+    smoothTargetsDirty_ = true;
+}
+
+void OrbitDelayCore::setTempoBpm(float value) {
+    tempoBpm_ = clampf(sanitizeFinite(value, tempoBpm_), kMinTempoBpm, kMaxTempoBpm);
+    tempoDelaySamples_ = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
+    smoothTargetsDirty_ = true;
+}
+
+void OrbitDelayCore::setNoteDivision(float value) {
+    noteDivision_ = clampf(sanitizeFinite(value, noteDivision_), kMinNoteDivision, kMaxNoteDivision);
+    tempoDelaySamples_ = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
     smoothTargetsDirty_ = true;
 }
 
@@ -263,7 +290,7 @@ float OrbitDelayCore::processChannelFast(float input, DelayLine& delay, OnePoleL
     const float sanitizedInput = input;
     float wet = 0.0f;
     if (readMode_ == ReadMode::AccidentalReverse) {
-        const float delaySamples = params.orbit * static_cast<float>(delay.writePos) + params.offsetSamples + spread;
+        const float delaySamples = params.tempoDelaySamples + spread;
         float readPosForward = static_cast<float>(delay.writePos) + delaySamples;
         while (readPosForward >= delaySize) {
             readPosForward -= delaySize;

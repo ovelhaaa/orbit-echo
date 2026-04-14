@@ -3,6 +3,8 @@ export function bindOrbitUiControls(api, root = document) {
   const controls = [
     ['orbit', 'orbit_wasm_set_orbit', parseFloat],
     ['offsetSamples', 'orbit_wasm_set_offset_samples', parseFloat],
+    ['tempoBpm', 'orbit_wasm_set_tempo_bpm', parseFloat],
+    ['noteDivision', 'orbit_wasm_set_note_division', parseFloat],
     ['stereoSpread', 'orbit_wasm_set_stereo_spread', parseFloat],
     ['feedback', 'orbit_wasm_set_feedback', parseFloat],
     ['mix', 'orbit_wasm_set_mix', parseFloat],

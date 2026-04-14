@@ -85,6 +85,8 @@ bool orbit_wasm_process_stereo(const float* input_l,
 
 bool orbit_wasm_set_orbit(float value) { return orbit_set_orbit(g_ctx.handle, value); }
 bool orbit_wasm_set_offset_samples(float value) { return orbit_set_offset_samples(g_ctx.handle, value); }
+bool orbit_wasm_set_tempo_bpm(float value) { return orbit_set_tempo_bpm(g_ctx.handle, value); }
+bool orbit_wasm_set_note_division(float value) { return orbit_set_note_division(g_ctx.handle, value); }
 bool orbit_wasm_set_stereo_spread(float value) { return orbit_set_stereo_spread(g_ctx.handle, value); }
 bool orbit_wasm_set_feedback(float value) { return orbit_set_feedback(g_ctx.handle, value); }
 bool orbit_wasm_set_mix(float value) { return orbit_set_mix(g_ctx.handle, value); }

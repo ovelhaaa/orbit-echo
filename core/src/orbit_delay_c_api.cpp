@@ -93,6 +93,22 @@ bool orbit_set_offset_samples(OrbitDelayHandle* handle, float value) {
     return true;
 }
 
+bool orbit_set_tempo_bpm(OrbitDelayHandle* handle, float value) {
+    if (handle == nullptr) {
+        return false;
+    }
+    handle->core.setTempoBpm(value);
+    return true;
+}
+
+bool orbit_set_note_division(OrbitDelayHandle* handle, float value) {
+    if (handle == nullptr) {
+        return false;
+    }
+    handle->core.setNoteDivision(value);
+    return true;
+}
+
 bool orbit_set_stereo_spread(OrbitDelayHandle* handle, float value) {
     if (handle == nullptr) {
         return false;

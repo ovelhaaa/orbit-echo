@@ -23,6 +23,8 @@ public:
     void setSampleRate(float sr);
     void setOrbit(float value);
     void setOffsetSamples(float value);
+    void setTempoBpm(float value);
+    void setNoteDivision(float value);
     void setStereoSpread(float value);
     void setFeedback(float value);
     void setMix(float value);
@@ -51,6 +53,7 @@ private:
     struct SmoothedParams {
         float orbit = 0.5f;
         float offsetSamples = 1200.0f;
+        float tempoDelaySamples = 24000.0f;
         float stereoSpread = 0.0f;
         float feedback = 0.35f;
         float mix = 0.35f;
@@ -67,6 +70,10 @@ private:
     static constexpr float kFallbackSampleRate = 48000.0f;
     static constexpr uint32_t kMinUsefulDelaySize = 4u;
     static constexpr float kStereoSpreadMax = 20000.0f;
+    static constexpr float kMinTempoBpm = 20.0f;
+    static constexpr float kMaxTempoBpm = 320.0f;
+    static constexpr float kMinNoteDivision = 0.0625f;
+    static constexpr float kMaxNoteDivision = 4.0f;
     static constexpr uint32_t kHeavyParamCadenceSamples = 16u;
     static constexpr float kLowpassUpdateDeltaHz = 20.0f;
     static constexpr float kDiffuserUpdateDelta = 0.01f;
@@ -81,6 +88,7 @@ private:
     static constexpr float kSmoothToneMs = 50.0f;
     static constexpr float kSmoothOrbitMs = 35.0f;
     static constexpr float kSmoothOffsetMs = 25.0f;
+    static constexpr float kSmoothTempoDelayMs = 25.0f;
     static constexpr float kSmoothSmearMs = 35.0f;
     static constexpr float kSmoothStereoSpreadMs = 8.0f;
 
@@ -93,6 +101,9 @@ private:
     float sampleRate_ = kFallbackSampleRate;
     float orbit_ = 0.5f;
     float offsetSamples_ = 1200.0f;
+    float tempoBpm_ = 120.0f;
+    float noteDivision_ = 1.0f;
+    float tempoDelaySamples_ = 24000.0f;
     float stereoSpread_ = 0.0f;
     float feedback_ = 0.35f;
     float mix_ = 0.35f;
@@ -119,6 +130,7 @@ private:
     LinearSmoother toneSm_;
     LinearSmoother orbitSm_;
     LinearSmoother offsetSm_;
+    LinearSmoother tempoDelaySm_;
     LinearSmoother smearSm_;
     LinearSmoother stereoSpreadSm_;
 
