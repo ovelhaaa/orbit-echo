@@ -94,6 +94,7 @@ bool orbit_wasm_set_input_gain(float value) { return orbit_set_input_gain(g_ctx.
 bool orbit_wasm_set_output_gain(float value) { return orbit_set_output_gain(g_ctx.handle, value); }
 bool orbit_wasm_set_tone_hz(float value) { return orbit_set_tone_hz(g_ctx.handle, value); }
 bool orbit_wasm_set_smear_amount(float value) { return orbit_set_smear_amount(g_ctx.handle, value); }
+bool orbit_wasm_set_shimmer_mode(bool enabled) { return orbit_set_shimmer_mode(g_ctx.handle, enabled); }
 bool orbit_wasm_set_diffuser_stages(uint32_t value) { return orbit_set_diffuser_stages(g_ctx.handle, value); }
 bool orbit_wasm_set_dc_block_enabled(bool enabled) { return orbit_set_dc_block_enabled(g_ctx.handle, enabled); }
 bool orbit_wasm_set_read_mode(uint32_t mode) { return orbit_set_read_mode(g_ctx.handle, static_cast<OrbitReadMode>(mode)); }

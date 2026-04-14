@@ -32,6 +32,7 @@ public:
     void setOutputGain(float value);
     void setToneHz(float value);
     void setSmearAmount(float value);
+    void setShimmerMode(bool enabled);
     void setDiffuserStages(uint32_t count);
     void setDcBlockEnabled(bool enabled);
     void setReadMode(ReadMode mode);
@@ -122,6 +123,7 @@ private:
     float inputGain_ = 1.0f;
     float outputGain_ = 1.0f;
     bool dcBlockEnabled_ = false;
+    bool shimmerModeEnabled_ = true;
     ReadMode readMode_ = ReadMode::Orbit;
     FeedbackPreset feedbackPreset_ = FeedbackPreset::Default;
     bool initialized_ = false;

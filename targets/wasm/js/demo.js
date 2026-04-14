@@ -4,7 +4,8 @@ const BLOCK_SIZE = 128;
 const MAX_DELAY_SAMPLES = 48000 * 2;
 const READ_MODE_ACCIDENTAL_REVERSE = 1;
 const REVERSE_LEGACY_DEFAULTS = {
-  toneHz: 1800
+  toneHz: 1800,
+  smearAmount: 0
 };
 
 const els = {
@@ -19,7 +20,8 @@ const els = {
   smearAmount: document.getElementById('smearAmount'),
   tempoBpm: document.getElementById('tempoBpm'),
   noteDivision: document.getElementById('noteDivision'),
-  readMode: document.getElementById('readMode')
+  readMode: document.getElementById('readMode'),
+  shimmerMode: document.getElementById('shimmerMode')
 };
 
 const outputs = {
@@ -29,7 +31,8 @@ const outputs = {
   smearAmount: document.getElementById('smearAmountOut'),
   tempoBpm: document.getElementById('tempoBpmOut'),
   noteDivision: document.getElementById('noteDivisionOut'),
-  readMode: document.getElementById('readModeOut')
+  readMode: document.getElementById('readModeOut'),
+  shimmerMode: document.getElementById('shimmerModeOut')
 };
 
 for (const key of Object.keys(outputs)) {
@@ -38,7 +41,7 @@ for (const key of Object.keys(outputs)) {
   const render = () => {
     if (key === 'toneHz' || key === 'tempoBpm') {
       output.textContent = String(Math.round(Number(input.value)));
-    } else if (key === 'noteDivision' || key === 'readMode') {
+    } else if (key === 'noteDivision' || key === 'readMode' || key === 'shimmerMode') {
       const label = input.options[input.selectedIndex]?.textContent;
       output.textContent = label || input.value;
     } else {
@@ -64,6 +67,7 @@ async function initWasm() {
     setMix: module.cwrap('orbit_wasm_set_mix', 'number', ['number']),
     setToneHz: module.cwrap('orbit_wasm_set_tone_hz', 'number', ['number']),
     setSmearAmount: module.cwrap('orbit_wasm_set_smear_amount', 'number', ['number']),
+    setShimmerMode: module.cwrap('orbit_wasm_set_shimmer_mode', 'number', ['number']),
     setTempoBpm: module.cwrap('orbit_wasm_set_tempo_bpm', 'number', ['number']),
     setNoteDivision: module.cwrap('orbit_wasm_set_note_division', 'number', ['number']),
     setReadMode: module.cwrap('orbit_wasm_set_read_mode', 'number', ['number'])
@@ -147,6 +151,7 @@ function applyParams() {
   api.setMix(Number(els.mix.value));
   api.setToneHz(Number(els.toneHz.value));
   api.setSmearAmount(Number(els.smearAmount.value));
+  api.setShimmerMode(Number(els.shimmerMode.value));
   api.setTempoBpm(Number(els.tempoBpm.value));
   api.setNoteDivision(Number(els.noteDivision.value));
   api.setReadMode(Number(els.readMode.value));
@@ -156,7 +161,9 @@ function applyReadModeDefaults() {
   const readMode = Number(els.readMode.value);
   if (readMode !== READ_MODE_ACCIDENTAL_REVERSE) return;
   els.toneHz.value = String(REVERSE_LEGACY_DEFAULTS.toneHz);
+  els.smearAmount.value = String(REVERSE_LEGACY_DEFAULTS.smearAmount);
   outputs.toneHz.textContent = String(REVERSE_LEGACY_DEFAULTS.toneHz);
+  outputs.smearAmount.textContent = Number(REVERSE_LEGACY_DEFAULTS.smearAmount).toFixed(2);
 }
 
 function processStereoBuffer(left, right) {

@@ -89,8 +89,8 @@
           </div>
           <div class="row">
             <label for="smearAmount">Smear</label>
-            <input id="smearAmount" type="range" min="0" max="1" step="0.01" value="0.25" />
-            <output id="smearAmountOut">0.25</output>
+            <input id="smearAmount" type="range" min="0" max="1" step="0.01" value="0.00" />
+            <output id="smearAmountOut">0.00</output>
           </div>
           <div class="row">
             <label for="tempoBpm">Tempo (BPM)</label>
@@ -113,10 +113,18 @@
           <div class="row">
             <label for="readMode">Modo de leitura</label>
             <select id="readMode">
-              <option value="0" selected>Orbit</option>
-              <option value="1" data-tone-hz="1800">AccidentalReverse (ReverseLegacy)</option>
+              <option value="0">Orbit</option>
+              <option value="1" data-tone-hz="1800" selected>Glitch Delay (AccidentalReverse)</option>
             </select>
-            <output id="readModeOut">Orbit</output>
+            <output id="readModeOut">Glitch Delay (AccidentalReverse)</output>
+          </div>
+          <div class="row">
+            <label for="shimmerMode">Shimmer mode</label>
+            <select id="shimmerMode">
+              <option value="1" selected>Ativo (smear/diffusion)</option>
+              <option value="0">Bypass (som cru)</option>
+            </select>
+            <output id="shimmerModeOut">Ativo (smear/diffusion)</output>
           </div>
         </div>
 

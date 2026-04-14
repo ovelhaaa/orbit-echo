@@ -273,6 +273,10 @@ void OrbitDelayCore::setSmearAmount(float value) {
     smoothTargetsDirty_ = true;
 }
 
+void OrbitDelayCore::setShimmerMode(bool enabled) {
+    shimmerModeEnabled_ = enabled;
+}
+
 void OrbitDelayCore::setLowpassCutoffHz(float value) {
     setToneHz(value);
 }
@@ -338,10 +342,12 @@ float OrbitDelayCore::processChannelFast(float input, DelayLine& delay, BiquadLo
         wet = 0.0f;
     }
 
-    wet = diffuser.process(wet);
-    if (!isFiniteSafe(wet)) {
-        diffuser.reset();
-        wet = 0.0f;
+    if (shimmerModeEnabled_) {
+        wet = diffuser.process(wet);
+        if (!isFiniteSafe(wet)) {
+            diffuser.reset();
+            wet = 0.0f;
+        }
     }
 
     float filteredWet = lp.process(wet);
