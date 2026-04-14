@@ -6,6 +6,8 @@ const TAP_BUFFER_SIZE = 8;
 const TAP_MIN_BPM = 20;
 const TAP_MAX_BPM = 240;
 const TAP_EXPIRE_MS = 4000;
+const REPEAT_STORAGE_KEY = 'orbit-echo:transport:repeat-mode';
+const PROJECT_REPEAT_PREFIX = 'orbit-echo:transport:repeat-project:';
 
 const PRESETS = {
   A: {
@@ -61,7 +63,10 @@ const els = {
   noteDivision: document.getElementById('noteDivision'),
   readMode: document.getElementById('readMode'),
   dcBlockEnabled: document.getElementById('dcBlockEnabled'),
-  shimmerMode: document.getElementById('shimmerMode')
+  shimmerMode: document.getElementById('shimmerMode'),
+  playPauseBtn: document.getElementById('playPauseBtn'),
+  repeatBtn: document.getElementById('repeatBtn'),
+  transportState: document.getElementById('transportState')
 };
 
 const outputs = {
@@ -84,6 +89,173 @@ const tapState = {
   timestamps: [],
   lastTapAt: 0
 };
+
+const repeatState = {
+  mode: 'off',
+  loopStart: 0,
+  loopEnd: 0,
+  projectKey: '',
+  monitorId: 0
+};
+
+function getProjectRepeatKey() {
+  const file = els.file?.files?.[0];
+  if (!file) return '';
+  return `${PROJECT_REPEAT_PREFIX}${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function readStoredRepeatMode() {
+  const projectKey = repeatState.projectKey;
+  const projectValue = projectKey ? localStorage.getItem(projectKey) : null;
+  const globalValue = localStorage.getItem(REPEAT_STORAGE_KEY);
+  const value = projectValue ?? globalValue;
+  return value === 'on' ? 'on' : 'off';
+}
+
+function persistRepeatMode() {
+  localStorage.setItem(REPEAT_STORAGE_KEY, repeatState.mode);
+  if (repeatState.projectKey) {
+    localStorage.setItem(repeatState.projectKey, repeatState.mode);
+  }
+}
+
+function updateTransportStateLabel() {
+  if (!els.transportState) return;
+  if (!els.preview.src) {
+    els.transportState.textContent = 'Sem áudio carregado.';
+    return;
+  }
+
+  const repeatLabel = repeatState.mode === 'on' ? 'Repeat On' : 'Repeat Off';
+  const now = Number.isFinite(els.preview.currentTime) ? els.preview.currentTime : 0;
+  const end = Number.isFinite(repeatState.loopEnd) ? repeatState.loopEnd : 0;
+  els.transportState.textContent = `${els.preview.paused ? 'Pause' : 'Play'} · ${repeatLabel} · ${now.toFixed(2)}s / ${end.toFixed(2)}s`;
+}
+
+function updateRepeatUi() {
+  if (!els.repeatBtn) return;
+  const isOn = repeatState.mode === 'on';
+  els.repeatBtn.classList.toggle('is-active', isOn);
+  els.repeatBtn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+  els.repeatBtn.textContent = isOn ? '⟲ Repeat On' : '⟲ Repeat Off';
+  els.repeatBtn.title = isOn
+    ? 'Repeat: On (atalho R · A/B Loop futuro)'
+    : 'Repeat: Off (atalho R · A/B Loop futuro)';
+  updateTransportStateLabel();
+}
+
+function updatePlayPauseUi() {
+  if (!els.playPauseBtn) return;
+  els.playPauseBtn.textContent = els.preview.paused ? '▶ Play' : '⏸ Pause';
+  updateTransportStateLabel();
+}
+
+function refreshLoopPoints() {
+  const duration = Number.isFinite(els.preview.duration) ? els.preview.duration : 0;
+  repeatState.loopStart = 0;
+  repeatState.loopEnd = duration;
+  updateTransportStateLabel();
+}
+
+function monitorRepeatLoop() {
+  if (repeatState.monitorId) {
+    cancelAnimationFrame(repeatState.monitorId);
+    repeatState.monitorId = 0;
+  }
+
+  const tick = () => {
+    if (!els.preview || els.preview.paused || repeatState.mode !== 'on') {
+      repeatState.monitorId = 0;
+      updateTransportStateLabel();
+      return;
+    }
+
+    const loopEnd = repeatState.loopEnd;
+    if (loopEnd > 0) {
+      const epsilon = Math.min(0.03, Math.max(0.005, loopEnd / 40));
+      if (els.preview.currentTime >= loopEnd - epsilon) {
+        els.preview.currentTime = repeatState.loopStart;
+      }
+    }
+
+    updateTransportStateLabel();
+    repeatState.monitorId = requestAnimationFrame(tick);
+  };
+
+  repeatState.monitorId = requestAnimationFrame(tick);
+}
+
+function toggleRepeatMode() {
+  repeatState.mode = repeatState.mode === 'on' ? 'off' : 'on';
+  persistRepeatMode();
+  updateRepeatUi();
+  if (repeatState.mode === 'on' && !els.preview.paused) {
+    monitorRepeatLoop();
+  }
+}
+
+function initTransport() {
+  repeatState.projectKey = getProjectRepeatKey();
+  repeatState.mode = readStoredRepeatMode();
+  updateRepeatUi();
+  updatePlayPauseUi();
+
+  els.playPauseBtn?.addEventListener('click', async () => {
+    if (!els.preview.src) return;
+    if (els.preview.paused) {
+      await els.preview.play();
+    } else {
+      els.preview.pause();
+    }
+    updatePlayPauseUi();
+  });
+
+  els.repeatBtn?.addEventListener('click', () => {
+    if (!els.preview.src) return;
+    toggleRepeatMode();
+  });
+
+  els.preview.addEventListener('play', () => {
+    updatePlayPauseUi();
+    if (repeatState.mode === 'on') {
+      monitorRepeatLoop();
+    }
+  });
+  els.preview.addEventListener('pause', updatePlayPauseUi);
+  els.preview.addEventListener('seeked', () => {
+    if (repeatState.mode === 'on' && repeatState.loopEnd > 0 && els.preview.currentTime >= repeatState.loopEnd) {
+      els.preview.currentTime = repeatState.loopStart;
+    }
+    updateTransportStateLabel();
+  });
+  els.preview.addEventListener('loadedmetadata', () => {
+    refreshLoopPoints();
+    els.playPauseBtn.disabled = false;
+    els.repeatBtn.disabled = false;
+    repeatState.projectKey = getProjectRepeatKey();
+    repeatState.mode = readStoredRepeatMode();
+    updateRepeatUi();
+  });
+  els.preview.addEventListener('timeupdate', updateTransportStateLabel);
+  els.preview.addEventListener('ended', () => {
+    if (repeatState.mode === 'on' && repeatState.loopEnd > 0) {
+      els.preview.currentTime = repeatState.loopStart;
+      els.preview.play().catch(() => {});
+      monitorRepeatLoop();
+      return;
+    }
+    updatePlayPauseUi();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.repeat) return;
+    const key = event.key.toLowerCase();
+    if (key !== 'r') return;
+    event.preventDefault();
+    if (!els.preview.src) return;
+    toggleRepeatMode();
+  });
+}
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -357,8 +529,10 @@ els.processBtn.addEventListener('click', async () => {
     const url = URL.createObjectURL(wavBlob);
 
     els.preview.src = url;
+    els.preview.currentTime = 0;
     els.downloadLink.href = url;
     els.downloadLink.hidden = false;
+    refreshLoopPoints();
     els.downloadLink.textContent = 'Baixar WAV processado';
     els.status.textContent = 'Concluído! Ouça no player ou baixe o arquivo.';
   } catch (err) {
@@ -375,10 +549,14 @@ els.presetMode.addEventListener('change', () => {
 
 bindOutputs();
 applyPreset('A');
+initTransport();
 
 els.tapTempoBtn?.addEventListener('click', handleTapTempo);
 els.resetTapBtn?.addEventListener('click', clearTapHistory);
-els.tempoBpm.addEventListener('input', updateTapTempoOut);
+els.tempoBpm.addEventListener('input', () => {
+  updateTapTempoOut();
+  refreshLoopPoints();
+});
 
 initWasm().catch((err) => {
   els.status.textContent = `Falha ao iniciar WASM: ${err instanceof Error ? err.message : String(err)}`;
