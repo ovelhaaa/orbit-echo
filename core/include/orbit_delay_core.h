@@ -11,6 +11,11 @@ namespace orbit::dsp {
 
 class OrbitDelayCore {
 public:
+    enum class ReadMode : uint32_t {
+        Orbit = 0u,
+        AccidentalReverse = 1u,
+    };
+
     void reset(float sampleRate);
     bool attachBuffers(float* leftBuffer, float* rightBuffer, uint32_t size);
     bool attachBufferMono(float* buffer, uint32_t size);
@@ -27,6 +32,7 @@ public:
     void setSmearAmount(float value);
     void setDiffuserStages(uint32_t count);
     void setDcBlockEnabled(bool enabled);
+    void setReadMode(ReadMode mode);
 
     [[deprecated("Use attachBuffers(left, right, size) or attachBufferMono(buffer, size)")]]
     bool attachBuffers(float* leftBuffer, uint32_t leftSize, float* rightBuffer, uint32_t rightSize);
@@ -96,6 +102,7 @@ private:
     float inputGain_ = 1.0f;
     float outputGain_ = 1.0f;
     bool dcBlockEnabled_ = false;
+    ReadMode readMode_ = ReadMode::Orbit;
     bool initialized_ = false;
 
     bool sampleRateDirty_ = true;

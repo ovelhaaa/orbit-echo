@@ -165,6 +165,23 @@ bool orbit_set_dc_block_enabled(OrbitDelayHandle* handle, bool enabled) {
     return true;
 }
 
+bool orbit_set_read_mode(OrbitDelayHandle* handle, OrbitReadMode mode) {
+    if (handle == nullptr) {
+        return false;
+    }
+
+    switch (mode) {
+        case ORBIT_READ_MODE_ORBIT:
+            handle->core.setReadMode(orbit::dsp::OrbitDelayCore::ReadMode::Orbit);
+            return true;
+        case ORBIT_READ_MODE_ACCIDENTAL_REVERSE:
+            handle->core.setReadMode(orbit::dsp::OrbitDelayCore::ReadMode::AccidentalReverse);
+            return true;
+        default:
+            return false;
+    }
+}
+
 bool orbit_attach_buffers(OrbitDelayHandle* handle, float* delay_buffer_l, float* delay_buffer_r, uint32_t delay_size) {
     if (handle == nullptr || delay_buffer_l == nullptr || delay_buffer_r == nullptr) {
         return false;
