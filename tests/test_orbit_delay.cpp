@@ -86,6 +86,9 @@ int main() {
     stereo.setSmearAmount(-10.0f);
     stereo.setStereoSpread(1.0e9f);
     stereo.setOffsetSamples(-1.0e9f);
+    stereo.setTempoBpm(2000.0f);
+    stereo.setNoteDivision(10.0f);
+    stereo.setReadMode(OrbitDelayCore::ReadMode::AccidentalReverse);
 
     for (int block = 0; block < 8; ++block) {
         stereo.processStereo(inL.data(), inR.data(), outL.data(), outR.data(), static_cast<uint32_t>(inL.size()));

@@ -7,9 +7,12 @@ class OrbitDelayProcessor extends AudioWorkletProcessor {
     return [
       { name: 'orbit', defaultValue: 0.35, minValue: 0.0, maxValue: 1.0 },
       { name: 'offsetSamples', defaultValue: 0.0, minValue: -24000.0, maxValue: 24000.0 },
+      { name: 'tempoBpm', defaultValue: 120.0, minValue: 20.0, maxValue: 320.0 },
+      { name: 'noteDivision', defaultValue: 1.0, minValue: 0.0625, maxValue: 4.0 },
       { name: 'stereoSpread', defaultValue: 0.5, minValue: 0.0, maxValue: 1.0 },
       { name: 'feedback', defaultValue: 0.4, minValue: 0.0, maxValue: 0.98 },
       { name: 'mix', defaultValue: 0.35, minValue: 0.0, maxValue: 1.0 },
+      { name: 'readMode', defaultValue: 0.0, minValue: 0.0, maxValue: 1.0 },
       { name: 'inputGain', defaultValue: 1.0, minValue: 0.0, maxValue: 4.0 },
       { name: 'outputGain', defaultValue: 1.0, minValue: 0.0, maxValue: 4.0 },
       { name: 'toneHz', defaultValue: 6500.0, minValue: 20.0, maxValue: 20000.0 },
@@ -33,6 +36,8 @@ class OrbitDelayProcessor extends AudioWorkletProcessor {
       process: this.module.cwrap('orbit_wasm_process_stereo', 'number', ['number', 'number', 'number', 'number', 'number']),
       set_orbit: this.module.cwrap('orbit_wasm_set_orbit', 'number', ['number']),
       set_offset_samples: this.module.cwrap('orbit_wasm_set_offset_samples', 'number', ['number']),
+      set_tempo_bpm: this.module.cwrap('orbit_wasm_set_tempo_bpm', 'number', ['number']),
+      set_note_division: this.module.cwrap('orbit_wasm_set_note_division', 'number', ['number']),
       set_stereo_spread: this.module.cwrap('orbit_wasm_set_stereo_spread', 'number', ['number']),
       set_feedback: this.module.cwrap('orbit_wasm_set_feedback', 'number', ['number']),
       set_mix: this.module.cwrap('orbit_wasm_set_mix', 'number', ['number']),
@@ -41,7 +46,8 @@ class OrbitDelayProcessor extends AudioWorkletProcessor {
       set_tone_hz: this.module.cwrap('orbit_wasm_set_tone_hz', 'number', ['number']),
       set_smear_amount: this.module.cwrap('orbit_wasm_set_smear_amount', 'number', ['number']),
       set_diffuser_stages: this.module.cwrap('orbit_wasm_set_diffuser_stages', 'number', ['number']),
-      set_dc_block_enabled: this.module.cwrap('orbit_wasm_set_dc_block_enabled', 'number', ['number'])
+      set_dc_block_enabled: this.module.cwrap('orbit_wasm_set_dc_block_enabled', 'number', ['number']),
+      set_read_mode: this.module.cwrap('orbit_wasm_set_read_mode', 'number', ['number'])
     };
 
     const delaySize = processorOptions.delaySize || 48000;
@@ -60,6 +66,8 @@ class OrbitDelayProcessor extends AudioWorkletProcessor {
     const at = (name) => (parameters[name]?.length ? parameters[name][0] : OrbitDelayProcessor.parameterDescriptors.find(p => p.name === name).defaultValue);
     this.api.set_orbit(at('orbit'));
     this.api.set_offset_samples(at('offsetSamples'));
+    this.api.set_tempo_bpm(at('tempoBpm'));
+    this.api.set_note_division(at('noteDivision'));
     this.api.set_stereo_spread(at('stereoSpread'));
     this.api.set_feedback(at('feedback'));
     this.api.set_mix(at('mix'));
@@ -69,6 +77,7 @@ class OrbitDelayProcessor extends AudioWorkletProcessor {
     this.api.set_smear_amount(at('smearAmount'));
     this.api.set_diffuser_stages(Math.round(at('diffuserStages')));
     this.api.set_dc_block_enabled(at('dcBlockEnabled') >= 0.5 ? 1 : 0);
+    this.api.set_read_mode(Math.round(at('readMode')));
   }
 
   process(inputs, outputs, parameters) {

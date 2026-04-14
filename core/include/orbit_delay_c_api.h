@@ -75,6 +75,8 @@ void orbit_reset(OrbitDelayHandle* handle, float sample_rate);
  */
 bool orbit_set_orbit(OrbitDelayHandle* handle, float value);
 bool orbit_set_offset_samples(OrbitDelayHandle* handle, float value);
+bool orbit_set_tempo_bpm(OrbitDelayHandle* handle, float value);
+bool orbit_set_note_division(OrbitDelayHandle* handle, float value);
 bool orbit_set_stereo_spread(OrbitDelayHandle* handle, float value);
 bool orbit_set_feedback(OrbitDelayHandle* handle, float value);
 bool orbit_set_mix(OrbitDelayHandle* handle, float value);
