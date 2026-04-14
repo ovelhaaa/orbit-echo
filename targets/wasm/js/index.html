@@ -8,53 +8,157 @@
       :root {
         color-scheme: dark;
         font-family: Inter, system-ui, -apple-system, sans-serif;
+        --bg: #0b0f17;
+        --panel: #111a2a;
+        --panel-strong: #16243b;
+        --border: #2f456b;
+        --text: #f4f7ff;
+        --muted: #b6c4e1;
+        --accent: #5b8cff;
+        --accent-hover: #75a0ff;
+        --accent-active: #466fdb;
+        --focus: #9fc8ff;
+        --ok: #4de0a0;
+        --warn: #ffbe6b;
+        --surface-top: #131f34;
+        --panel-start: #12203a;
+        --quick-border: #466499;
+        --quick-start: #1a2e4f;
+        --quick-end: #121d31;
+        --status-inline: #d8e5ff;
+        --title: #d7e6ff;
+        --label: #e4edff;
+        --output: #f1f6ff;
+        --control-border: #48648f;
+        --control-bg: #1d2c48;
+        --control-hover-bg: #25395c;
+        --control-hover-border: #678abf;
+        --control-active-bg: #1a2942;
+        --primary-border: #82aaff;
+        --primary-text: #f7f9ff;
+        --transport-active-bg: #174b36;
+        --transport-active-text: #dcffe9;
+        --transport-bypass-bg: #5d3511;
+        --transport-bypass-text: #ffe6c8;
+        --help: #adc0e2;
+        --link: #dfe9ff;
       }
+      * { box-sizing: border-box; }
       body {
         margin: 0;
-        background: #0f1115;
-        color: #e9eef9;
+        background: radial-gradient(circle at 10% 0, var(--surface-top) 0, var(--bg) 52%);
+        color: var(--text);
+        line-height: 1.4;
       }
       .wrap {
-        max-width: 900px;
+        max-width: 1000px;
         margin: 0 auto;
-        padding: 24px;
+        padding: 28px 20px 40px;
       }
-      h1 { margin-bottom: 8px; }
-      p { color: #b7c2da; }
+      h1 {
+        margin: 0 0 8px;
+        letter-spacing: 0.01em;
+      }
+      p { color: var(--muted); }
       .panel {
-        border: 1px solid #273149;
-        border-radius: 10px;
-        padding: 16px;
-        margin-top: 16px;
-        background: #161b25;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        margin-top: 18px;
+        background: linear-gradient(180deg, var(--panel-start) 0%, var(--panel) 100%);
+      }
+      .panel h2 {
+        font-size: 1rem;
+        margin: 0 0 10px;
+      }
+      .panel + .panel { margin-top: 14px; }
+      .quick-flow {
+        border-color: var(--quick-border);
+        background: linear-gradient(180deg, var(--quick-start) 0%, var(--quick-end) 100%);
+      }
+      .quick-grid {
+        display: grid;
+        grid-template-columns: minmax(180px, 220px) 1fr auto;
+        gap: 12px;
+        align-items: center;
+      }
+      .quick-grid .status-inline {
+        color: var(--status-inline);
+        font-size: 0.92rem;
+      }
+      .group-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        color: var(--title);
+      }
+      .controls {
+        display: grid;
+        gap: 10px;
       }
       .row {
         display: grid;
-        grid-template-columns: 170px 1fr 120px;
-        gap: 10px;
+        grid-template-columns: 190px 1fr 130px;
+        gap: 12px;
         align-items: center;
-        margin-bottom: 8px;
+        margin: 0;
+      }
+      label { color: var(--label); }
+      output {
+        color: var(--output);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
       }
       input[type='range'] { width: 100%; }
-      button {
-        border: 1px solid #3f73ff;
-        color: #eef3ff;
-        background: #335be4;
-        border-radius: 8px;
-        padding: 10px 14px;
+      input[type='file'],
+      select,
+      button,
+      a {
+        border-radius: 10px;
+        border: 1px solid var(--control-border);
+        background: var(--control-bg);
+        color: var(--text);
+        min-height: 40px;
+      }
+      input[type='file'],
+      select {
+        width: 100%;
+        padding: 8px 10px;
+      }
+      button,
+      a:not([hidden]) {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 9px 14px;
+        font-weight: 650;
+        text-decoration: none;
         cursor: pointer;
-        font-weight: 600;
+        transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+      }
+      button:hover,
+      a:hover { background: var(--control-hover-bg); border-color: var(--control-hover-border); }
+      button:active,
+      a:active { background: var(--control-active-bg); transform: translateY(1px); }
+      button:focus-visible,
+      a:focus-visible,
+      select:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
       }
       button:disabled {
+        opacity: 0.48;
         cursor: not-allowed;
-        opacity: 0.6;
       }
-      .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin-top: 12px;
+      .btn-primary {
+        background: var(--accent);
+        border-color: var(--primary-border);
+        color: var(--primary-text);
       }
+      .btn-primary:hover { background: var(--accent-hover); }
+      .btn-primary:active { background: var(--accent-active); }
       .transport {
         display: flex;
         align-items: center;
@@ -62,173 +166,181 @@
         gap: 8px;
         margin-top: 12px;
       }
-      .transport button {
-        border-color: #3c4d76;
-        background: #202d4a;
-        padding: 8px 12px;
-      }
       .transport button.is-active {
-        border-color: #51ff9f;
-        background: #145533;
-        color: #dcffe9;
+        border-color: var(--ok);
+        background: var(--transport-active-bg);
+        color: var(--transport-active-text);
       }
       .transport button.is-bypass {
-        border-color: #ffad4a;
-        background: #5c3310;
-        color: #ffe6c8;
+        border-color: var(--warn);
+        background: var(--transport-bypass-bg);
+        color: var(--transport-bypass-text);
       }
-      .transport-state {
-        color: #98a7c9;
-        font-size: 0.85rem;
+      .transport-state,
+      .hint,
+      .tap-feedback {
+        color: var(--help);
+        font-size: 0.88rem;
       }
-      #status { font-size: 0.95rem; }
-      audio { width: 100%; margin-top: 12px; }
-      a { color: #80a5ff; }
-      .hint { color: #98a7c9; font-size: 0.85rem; margin-top: 8px; }
       .tap-controls {
         display: flex;
         gap: 8px;
         align-items: center;
         flex-wrap: wrap;
       }
-      .tap-feedback {
-        color: #98a7c9;
-        font-size: 0.85rem;
+      audio { width: 100%; margin-top: 14px; }
+      .split {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 1.2fr 1fr;
+      }
+      a { color: var(--link); }
+      @media (max-width: 900px) {
+        .split { grid-template-columns: 1fr; }
+        .quick-grid { grid-template-columns: 1fr; }
+        .row { grid-template-columns: 1fr; gap: 6px; }
+        output { text-align: left; }
       }
     </style>
   </head>
   <body>
     <main class="wrap">
       <h1>orbit-echo WASM demo</h1>
-      <p>
-        Faça upload de um arquivo de áudio e processe direto no navegador usando o mesmo core C++ do efeito.
-      </p>
+      <p>Faça upload de um arquivo de áudio e processe direto no navegador usando o mesmo core C++ do efeito.</p>
 
-      <section class="panel">
-        <label for="audioFile"><strong>Arquivo de entrada (wav/mp3/flac/ogg):</strong></label>
-        <input id="audioFile" type="file" accept="audio/*" />
-
-        <div class="panel">
-          <div class="row">
-            <label for="presetMode">Preset de inicialização</label>
-            <select id="presetMode">
-              <option value="A" selected>Preset A · Reverse Legacy</option>
-              <option value="B">Preset B · Orbit Modern</option>
-            </select>
-            <output id="presetModeOut">Preset A · Reverse Legacy</output>
-          </div>
-          <div class="row">
-            <label for="feedback">Feedback</label>
-            <input id="feedback" type="range" min="0" max="0.95" step="0.01" value="0.45" />
-            <output id="feedbackOut">0.45</output>
-          </div>
-          <div class="row">
-            <label for="mix">Mix</label>
-            <input id="mix" type="range" min="0" max="1" step="0.01" value="0.45" />
-            <output id="mixOut">0.45</output>
-          </div>
-          <div class="row">
-            <label for="orbit">Orbit</label>
-            <input id="orbit" type="range" min="0" max="1" step="0.01" value="0.00" />
-            <output id="orbitOut">0.00</output>
-          </div>
-          <div class="row">
-            <label for="offsetSamples">Offset (ms)</label>
-            <input id="offsetSamples" type="range" min="-500" max="500" step="0.5" value="0" />
-            <output id="offsetSamplesOut">0.0 ms</output>
-          </div>
-          <div class="row">
-            <label for="stereoSpread">Stereo spread (ms)</label>
-            <input id="stereoSpread" type="range" min="0" max="100" step="0.1" value="0.0" />
-            <output id="stereoSpreadOut">0.0 ms</output>
-          </div>
-          <div class="row">
-            <label for="inputGain">Input gain (dB)</label>
-            <input id="inputGain" type="range" min="-24" max="12" step="0.1" value="0.0" />
-            <output id="inputGainOut">0.0 dB</output>
-          </div>
-          <div class="row">
-            <label for="outputGain">Output gain (dB)</label>
-            <input id="outputGain" type="range" min="-24" max="12" step="0.1" value="0.0" />
-            <output id="outputGainOut">0.0 dB</output>
-          </div>
-          <div class="row">
-            <label for="toneHz">Tone (Hz)</label>
-            <input id="toneHz" type="range" min="0" max="1" step="0.001" value="0.305" />
-            <output id="toneHzOut">1800</output>
-          </div>
-          <div class="row">
-            <label for="smearAmount">Smear</label>
-            <input id="smearAmount" type="range" min="0" max="1" step="0.01" value="0.00" />
-            <output id="smearAmountOut">0.00</output>
-          </div>
-          <div class="row">
-            <label for="tempoBpm">Tempo (BPM)</label>
-            <input id="tempoBpm" type="range" min="20" max="240" step="1" value="120" />
-            <output id="tempoBpmOut">120</output>
-          </div>
-          <div class="row">
-            <label>Tap tempo</label>
-            <div class="tap-controls">
-              <button id="tapTempoBtn" type="button">Tap Tempo</button>
-              <button id="resetTapBtn" type="button">Reset Tap</button>
-            </div>
-            <output id="tapTempoOut" class="tap-feedback">Tempo detectado: -- BPM</output>
-          </div>
-          <div class="row">
-            <label for="noteDivision">Subdivisão</label>
-            <select id="noteDivision">
-              <option value="0.25">1/16</option>
-              <option value="0.75">1/8 pontuada</option>
-              <option value="0.5">1/8</option>
-              <option value="1.5">1/4 pontuada</option>
-              <option value="1">1/4</option>
-              <option value="3">1/2 pontuada</option>
-              <option value="2">1/2</option>
-            </select>
-            <output id="noteDivisionOut">1/4</output>
-          </div>
-          <div class="row">
-            <label for="readMode">Modo de leitura</label>
-            <select id="readMode">
-              <option value="0">Orbit</option>
-              <option value="1" selected>AccidentalReverse</option>
-            </select>
-            <output id="readModeOut">AccidentalReverse</output>
-          </div>
-          <div class="row">
-            <label for="dcBlockEnabled">DC-block</label>
-            <select id="dcBlockEnabled">
-              <option value="1" selected>Ligado</option>
-              <option value="0">Desligado</option>
-            </select>
-            <output id="dcBlockEnabledOut">Ligado</output>
-          </div>
-          <div class="row">
-            <label for="shimmerMode">Modo shimmer</label>
-            <select id="shimmerMode">
-              <option value="1">Ativo (smear/diffusion)</option>
-              <option value="0" selected>Bypass (som cru)</option>
-            </select>
-            <output id="shimmerModeOut">Bypass (som cru)</output>
-          </div>
-          <p class="hint">Orbit/Offset/Stereo spread têm mais impacto no modo de leitura Orbit.</p>
+      <section class="panel quick-flow">
+        <h2 class="group-title">⚡ Fluxo principal</h2>
+        <div class="quick-grid">
+          <input id="audioFile" type="file" accept="audio/*" aria-label="Arquivo de entrada (wav, mp3, flac ou ogg)" />
+          <p id="status" class="status-inline">Inicializando WASM...</p>
+          <button id="processBtn" class="btn-primary" disabled>Processar áudio</button>
         </div>
-
-        <div class="actions">
-          <button id="processBtn" disabled>Processar áudio</button>
-          <a id="downloadLink" hidden download="orbit-echo-processed.wav">Baixar WAV processado</a>
-        </div>
-
         <div class="transport">
           <button id="playPauseBtn" type="button" disabled>▶ Play</button>
           <button id="bypassBtn" type="button" disabled title="Bypass global" aria-pressed="false">FX ON</button>
           <button id="repeatBtn" type="button" disabled title="Repeat: Off (atalho R)" aria-pressed="false">⟲ Repeat Off</button>
+          <a id="downloadLink" hidden download="orbit-echo-processed.wav">Baixar WAV processado</a>
           <span id="transportState" class="transport-state">Sem áudio carregado.</span>
         </div>
-
-        <p id="status">Inicializando WASM...</p>
         <audio id="preview" controls></audio>
+      </section>
+
+      <section class="split">
+        <section class="panel">
+          <h2 class="group-title">🎛️ Controles frequentes</h2>
+          <div class="controls">
+            <div class="row">
+              <label for="presetMode">Preset de inicialização</label>
+              <select id="presetMode">
+                <option value="A" selected>Preset A · Reverse Legacy</option>
+                <option value="B">Preset B · Orbit Modern</option>
+              </select>
+              <output id="presetModeOut">Preset A · Reverse Legacy</output>
+            </div>
+            <div class="row">
+              <label for="feedback">Feedback</label>
+              <input id="feedback" type="range" min="0" max="0.95" step="0.01" value="0.45" />
+              <output id="feedbackOut">0.45</output>
+            </div>
+            <div class="row">
+              <label for="mix">Mix</label>
+              <input id="mix" type="range" min="0" max="1" step="0.01" value="0.45" />
+              <output id="mixOut">0.45</output>
+            </div>
+            <div class="row">
+              <label for="orbit">Orbit</label>
+              <input id="orbit" type="range" min="0" max="1" step="0.01" value="0.00" />
+              <output id="orbitOut">0.00</output>
+            </div>
+            <div class="row">
+              <label for="offsetSamples">Offset (ms)</label>
+              <input id="offsetSamples" type="range" min="-500" max="500" step="0.5" value="0" />
+              <output id="offsetSamplesOut">0.0 ms</output>
+            </div>
+            <div class="row">
+              <label for="tempoBpm">Tempo (BPM)</label>
+              <input id="tempoBpm" type="range" min="20" max="240" step="1" value="120" />
+              <output id="tempoBpmOut">120</output>
+            </div>
+            <div class="row">
+              <label>Tap tempo</label>
+              <div class="tap-controls">
+                <button id="tapTempoBtn" type="button">Tap Tempo</button>
+                <button id="resetTapBtn" type="button">Reset Tap</button>
+              </div>
+              <output id="tapTempoOut" class="tap-feedback">Tempo detectado: -- BPM</output>
+            </div>
+            <div class="row">
+              <label for="noteDivision">Subdivisão</label>
+              <select id="noteDivision">
+                <option value="0.25">1/16</option>
+                <option value="0.75">1/8 pontuada</option>
+                <option value="0.5">1/8</option>
+                <option value="1.5">1/4 pontuada</option>
+                <option value="1">1/4</option>
+                <option value="3">1/2 pontuada</option>
+                <option value="2">1/2</option>
+              </select>
+              <output id="noteDivisionOut">1/4</output>
+            </div>
+            <div class="row">
+              <label for="readMode">Modo de leitura</label>
+              <select id="readMode">
+                <option value="0">Orbit</option>
+                <option value="1" selected>AccidentalReverse</option>
+              </select>
+              <output id="readModeOut">AccidentalReverse</output>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2 class="group-title">🧪 Ajustes finos</h2>
+          <div class="controls">
+            <div class="row">
+              <label for="stereoSpread">Stereo spread (ms)</label>
+              <input id="stereoSpread" type="range" min="0" max="100" step="0.1" value="0.0" />
+              <output id="stereoSpreadOut">0.0 ms</output>
+            </div>
+            <div class="row">
+              <label for="inputGain">Input gain (dB)</label>
+              <input id="inputGain" type="range" min="-24" max="12" step="0.1" value="0.0" />
+              <output id="inputGainOut">0.0 dB</output>
+            </div>
+            <div class="row">
+              <label for="outputGain">Output gain (dB)</label>
+              <input id="outputGain" type="range" min="-24" max="12" step="0.1" value="0.0" />
+              <output id="outputGainOut">0.0 dB</output>
+            </div>
+            <div class="row">
+              <label for="toneHz">Tone (Hz)</label>
+              <input id="toneHz" type="range" min="0" max="1" step="0.001" value="0.305" />
+              <output id="toneHzOut">1800</output>
+            </div>
+            <div class="row">
+              <label for="smearAmount">Smear</label>
+              <input id="smearAmount" type="range" min="0" max="1" step="0.01" value="0.00" />
+              <output id="smearAmountOut">0.00</output>
+            </div>
+            <div class="row">
+              <label for="dcBlockEnabled">DC-block</label>
+              <select id="dcBlockEnabled">
+                <option value="1" selected>Ligado</option>
+                <option value="0">Desligado</option>
+              </select>
+              <output id="dcBlockEnabledOut">Ligado</output>
+            </div>
+            <div class="row">
+              <label for="shimmerMode">Modo shimmer</label>
+              <select id="shimmerMode">
+                <option value="1">Ativo (smear/diffusion)</option>
+                <option value="0" selected>Bypass (som cru)</option>
+              </select>
+              <output id="shimmerModeOut">Bypass (som cru)</output>
+            </div>
+          </div>
+          <p class="hint">Orbit, Offset e Tempo ficam em Controles frequentes para ajustes rápidos no fluxo de trabalho.</p>
+        </section>
       </section>
     </main>
 
