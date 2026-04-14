@@ -79,10 +79,8 @@ void OrbitDelayCore::syncDspParams() {
     if (lowpassDirty_) {
         const float nyquistLimited = clampf(toneHz_, 300.0f, clampf(0.49f * sampleRate_, 300.0f, 12000.0f));
         const float lowpassQ = feedbackLowpassQ();
-        lowpassL_.setQ(lowpassQ);
-        lowpassR_.setQ(lowpassQ);
-        lowpassL_.setCutoffHz(nyquistLimited);
-        lowpassR_.setCutoffHz(nyquistLimited);
+        lowpassL_.setParams(nyquistLimited, lowpassQ);
+        lowpassR_.setParams(nyquistLimited, lowpassQ);
         lowpassDirty_ = false;
     }
 
@@ -142,8 +140,9 @@ void OrbitDelayCore::maybeApplyLowpassCutoff(float smoothedToneHz) {
     const float clampedToneHz = clampf(smoothedToneHz, 300.0f, clampf(0.49f * sampleRate_, 300.0f, 12000.0f));
     const float delta = std::fabs(clampedToneHz - appliedToneHz_);
     if (lowpassDirty_ || heavyParamCadenceHit_ || delta >= kLowpassUpdateDeltaHz) {
-        lowpassL_.setCutoffHz(clampedToneHz);
-        lowpassR_.setCutoffHz(clampedToneHz);
+        const float lowpassQ = feedbackLowpassQ();
+        lowpassL_.setParams(clampedToneHz, lowpassQ);
+        lowpassR_.setParams(clampedToneHz, lowpassQ);
         appliedToneHz_ = clampedToneHz;
         lowpassDirty_ = false;
     }
@@ -306,7 +305,7 @@ void OrbitDelayCore::setReadMode(ReadMode mode) {
     lowpassDirty_ = true;
 }
 
-float OrbitDelayCore::processChannelFast(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
+float OrbitDelayCore::processChannelFast(float input, DelayLine& delay, BiquadLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
                                          const SmoothedParams& params, float spread, float delaySize, float invDelaySize) {
     const float sanitizedInput = input;
     float wet = 0.0f;
@@ -347,7 +346,7 @@ float OrbitDelayCore::processChannelFast(float input, DelayLine& delay, OnePoleL
 
     float filteredWet = lp.process(wet);
     if (!isFiniteSafe(filteredWet)) {
-        lp.reset(0.0f);
+        lp.reset();
         filteredWet = 0.0f;
     }
 
@@ -372,7 +371,7 @@ float OrbitDelayCore::processChannelFast(float input, DelayLine& delay, OnePoleL
     return isFiniteSafe(out) ? out : 0.0f;
 }
 
-float OrbitDelayCore::processChannel(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
+float OrbitDelayCore::processChannel(float input, DelayLine& delay, BiquadLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
                                      const SmoothedParams& params, float spread) {
     const float sanitizedInput = sanitizeFinite(input, 0.0f);
     if (!initialized_ || delay.buffer == nullptr || delay.size < kMinUsefulDelaySize) {

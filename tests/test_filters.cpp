@@ -18,21 +18,21 @@ int fail(const char* message) {
 
 int main() {
     using orbit::dsp::DCBlocker;
-    using orbit::dsp::OnePoleLowpass;
+    using orbit::dsp::BiquadLowpass;
 
-    // OnePoleLowpass (biquad): limites/clamps e estabilidade básica.
-    OnePoleLowpass lp;
+    // BiquadLowpass: limites/clamps e estabilidade básica.
+    BiquadLowpass lp;
     lp.setSampleRate(-100.0f);   // clamp para 1 Hz mínimo
     lp.setCutoffHz(99999.0f);    // clamp para 0.49 * sampleRate
     if (!(lp.sampleRate >= 1.0f && lp.sampleRate <= 384000.0f)) {
-        return fail("OnePoleLowpass sampleRate clamp out of range");
+        return fail("BiquadLowpass sampleRate clamp out of range");
     }
     const float lpMaxCutoff = (0.49f * lp.sampleRate < 1.0f) ? 1.0f : (0.49f * lp.sampleRate);
     if (!(lp.cutoffHz >= 0.0f && lp.cutoffHz <= lpMaxCutoff + 1.0e-6f)) {
-        return fail("OnePoleLowpass cutoff clamp out of range");
+        return fail("BiquadLowpass cutoff clamp out of range");
     }
     if (!std::isfinite(lp.b0) || !std::isfinite(lp.b1) || !std::isfinite(lp.b2) || !std::isfinite(lp.a1) || !std::isfinite(lp.a2)) {
-        return fail("OnePoleLowpass coefficients should remain finite");
+        return fail("BiquadLowpass coefficients should remain finite");
     }
 
     lp.reset(0.0f);
@@ -41,13 +41,13 @@ int main() {
         y2 = lp.process(1.0f);
     }
     if (!std::isfinite(y2) || y2 < 0.0f || y2 > 1.2f) {
-        return fail("OnePoleLowpass step response should stay finite and bounded");
+        return fail("BiquadLowpass step response should stay finite and bounded");
     }
 
     lp.setQ(0.5f);
     const float yQ = lp.process(0.5f);
     if (!std::isfinite(yQ) || lp.q < 0.1f || lp.q > 10.0f) {
-        return fail("OnePoleLowpass Q update should be finite and clamped");
+        return fail("BiquadLowpass Q update should be finite and clamped");
     }
 
     // DCBlocker: limites/clamps e remoção de componente DC.

@@ -6,7 +6,7 @@
 
 namespace orbit::dsp {
 
-struct OnePoleLowpass {
+struct BiquadLowpass {
     float sampleRate = 48000.0f;
     float cutoffHz = 8000.0f;
     float q = 0.707f;
@@ -29,12 +29,16 @@ struct OnePoleLowpass {
     }
 
     void setCutoffHz(float hz) {
-        cutoffHz = clampf(hz, 1.0f, 0.49f * sampleRate);
-        updateCoefficients();
+        setParams(hz, q);
     }
 
     void setQ(float value) {
-        q = clampf(value, 0.1f, 10.0f);
+        setParams(cutoffHz, value);
+    }
+
+    void setParams(float hz, float qValue) {
+        cutoffHz = clampf(hz, 1.0f, 0.49f * sampleRate);
+        q = clampf(qValue, 0.1f, 10.0f);
         updateCoefficients();
     }
 
@@ -66,6 +70,8 @@ private:
         a2 = a2Raw / a0;
     }
 };
+
+using OnePoleLowpass [[deprecated("Use BiquadLowpass")]] = BiquadLowpass;
 
 struct DCBlocker {
     float sampleRate = 48000.0f;

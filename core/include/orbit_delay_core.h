@@ -101,9 +101,9 @@ private:
     static constexpr float kSmoothSmearMs = 35.0f;
     static constexpr float kSmoothStereoSpreadMs = 8.0f;
 
-    float processChannel(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
+    float processChannel(float input, DelayLine& delay, BiquadLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
                          const SmoothedParams& params, float spread);
-    float processChannelFast(float input, DelayLine& delay, OnePoleLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
+    float processChannelFast(float input, DelayLine& delay, BiquadLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
                              const SmoothedParams& params, float spread, float delaySize, float invDelaySize);
     bool advanceCadence();
 
@@ -147,8 +147,8 @@ private:
     DelayLine delayL_;
     DelayLine delayR_;
 
-    OnePoleLowpass lowpassL_;
-    OnePoleLowpass lowpassR_;
+    BiquadLowpass lowpassL_;
+    BiquadLowpass lowpassR_;
 
     DCBlocker dcL_;
     DCBlocker dcR_;
