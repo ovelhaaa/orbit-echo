@@ -232,7 +232,7 @@ function applyBypassCrossfade() {
 function syncWetPreviewTime() {
   if (!previewGraph.wetElement || !els.preview.src) return;
   const dryTime = Number.isFinite(els.preview.currentTime) ? els.preview.currentTime : 0;
-  if (Math.abs((previewGraph.wetElement.currentTime || 0) - dryTime) > 0.02) {
+  if (previewGraph.wetElement.readyState >= 1 && Math.abs((previewGraph.wetElement.currentTime || 0) - dryTime) > 0.02) {
     previewGraph.wetElement.currentTime = dryTime;
   }
 }
