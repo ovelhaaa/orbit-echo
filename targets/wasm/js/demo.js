@@ -2,6 +2,10 @@ import createOrbitModule from './orbit_delay_wasm.js';
 
 const BLOCK_SIZE = 128;
 const MAX_DELAY_SAMPLES = 48000 * 2;
+const READ_MODE_ACCIDENTAL_REVERSE = 1;
+const REVERSE_LEGACY_DEFAULTS = {
+  toneHz: 1800
+};
 
 const els = {
   file: document.getElementById('audioFile'),
@@ -67,6 +71,7 @@ async function initWasm() {
 
   const ok = api.init(48000, MAX_DELAY_SAMPLES);
   if (!ok) throw new Error('orbit_wasm_init falhou');
+  applyReadModeDefaults();
   api.setReadMode(Number(els.readMode.value));
 
   els.status.textContent = 'WASM pronto. Selecione um arquivo de áudio.';
@@ -147,6 +152,13 @@ function applyParams() {
   api.setReadMode(Number(els.readMode.value));
 }
 
+function applyReadModeDefaults() {
+  const readMode = Number(els.readMode.value);
+  if (readMode !== READ_MODE_ACCIDENTAL_REVERSE) return;
+  els.toneHz.value = String(REVERSE_LEGACY_DEFAULTS.toneHz);
+  outputs.toneHz.textContent = String(REVERSE_LEGACY_DEFAULTS.toneHz);
+}
+
 function processStereoBuffer(left, right) {
   const outL = new Float32Array(left.length);
   const outR = new Float32Array(right.length);
@@ -218,6 +230,10 @@ els.processBtn.addEventListener('click', async () => {
   } finally {
     els.processBtn.disabled = false;
   }
+});
+
+els.readMode.addEventListener('change', () => {
+  applyReadModeDefaults();
 });
 
 initWasm().catch((err) => {

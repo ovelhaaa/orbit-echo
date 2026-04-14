@@ -50,6 +50,11 @@ public:
     void processStereo(const float* inputL, const float* inputR, float* outputL, float* outputR, uint32_t numSamples);
 
 private:
+    enum class FeedbackPreset : uint32_t {
+        Default = 0u,
+        ReverseLegacy = 1u,
+    };
+
     struct SmoothedParams {
         float orbit = 0.5f;
         float offsetSamples = 1200.0f;
@@ -64,6 +69,7 @@ private:
     SmoothedParams advanceSmoothers();
     void maybeApplyLowpassCutoff(float smoothedToneHz);
     void maybeApplyDiffuserAmount(float smoothedSmear);
+    float feedbackLowpassQ() const;
     static float sanitizeFinite(float value, float fallback);
     float dryPassThrough(float input) const;
 
@@ -77,6 +83,9 @@ private:
     static constexpr uint32_t kHeavyParamCadenceSamples = 16u;
     static constexpr float kLowpassUpdateDeltaHz = 20.0f;
     static constexpr float kDiffuserUpdateDelta = 0.01f;
+    static constexpr float kDefaultFeedbackLowpassQ = 0.707f;
+    static constexpr float kReverseLegacyFeedbackLowpassQ = 0.5f;
+    static constexpr float kReverseLegacyToneHz = 1800.0f;
 
     // Default smoothing times tuned for MCU targets:
     // - core modulation params: 8-35 ms (zipper-noise suppression with low CPU).
@@ -114,6 +123,7 @@ private:
     float outputGain_ = 1.0f;
     bool dcBlockEnabled_ = false;
     ReadMode readMode_ = ReadMode::Orbit;
+    FeedbackPreset feedbackPreset_ = FeedbackPreset::Default;
     bool initialized_ = false;
 
     bool sampleRateDirty_ = true;
