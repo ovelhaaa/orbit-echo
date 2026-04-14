@@ -2,10 +2,38 @@ import createOrbitModule from './orbit_delay_wasm.js';
 
 const BLOCK_SIZE = 128;
 const MAX_DELAY_SAMPLES = 48000 * 2;
-const READ_MODE_ACCIDENTAL_REVERSE = 1;
-const REVERSE_LEGACY_DEFAULTS = {
-  toneHz: 1800,
-  smearAmount: 0
+
+const PRESETS = {
+  A: {
+    label: 'Preset A · Reverse Legacy',
+    readMode: 1,
+    feedback: 0.45,
+    mix: 0.45,
+    orbit: 0,
+    offsetSamples: 0,
+    stereoSpread: 0,
+    toneHz: 1800,
+    smearAmount: 0,
+    tempoBpm: 120,
+    noteDivision: 1,
+    dcBlockEnabled: 1,
+    shimmerMode: 0
+  },
+  B: {
+    label: 'Preset B · Orbit Modern',
+    readMode: 0,
+    feedback: 0.4,
+    mix: 0.35,
+    orbit: 0.35,
+    offsetSamples: 180,
+    stereoSpread: 0.5,
+    toneHz: 6500,
+    smearAmount: 0.25,
+    tempoBpm: 120,
+    noteDivision: 1,
+    dcBlockEnabled: 1,
+    shimmerMode: 1
+  }
 };
 
 const els = {
@@ -14,43 +42,74 @@ const els = {
   status: document.getElementById('status'),
   preview: document.getElementById('preview'),
   downloadLink: document.getElementById('downloadLink'),
+  presetMode: document.getElementById('presetMode'),
   feedback: document.getElementById('feedback'),
   mix: document.getElementById('mix'),
+  orbit: document.getElementById('orbit'),
+  offsetSamples: document.getElementById('offsetSamples'),
+  stereoSpread: document.getElementById('stereoSpread'),
   toneHz: document.getElementById('toneHz'),
   smearAmount: document.getElementById('smearAmount'),
   tempoBpm: document.getElementById('tempoBpm'),
   noteDivision: document.getElementById('noteDivision'),
   readMode: document.getElementById('readMode'),
+  dcBlockEnabled: document.getElementById('dcBlockEnabled'),
   shimmerMode: document.getElementById('shimmerMode')
 };
 
 const outputs = {
+  presetMode: document.getElementById('presetModeOut'),
   feedback: document.getElementById('feedbackOut'),
   mix: document.getElementById('mixOut'),
+  orbit: document.getElementById('orbitOut'),
+  offsetSamples: document.getElementById('offsetSamplesOut'),
+  stereoSpread: document.getElementById('stereoSpreadOut'),
   toneHz: document.getElementById('toneHzOut'),
   smearAmount: document.getElementById('smearAmountOut'),
   tempoBpm: document.getElementById('tempoBpmOut'),
   noteDivision: document.getElementById('noteDivisionOut'),
   readMode: document.getElementById('readModeOut'),
+  dcBlockEnabled: document.getElementById('dcBlockEnabledOut'),
   shimmerMode: document.getElementById('shimmerModeOut')
 };
 
-for (const key of Object.keys(outputs)) {
+function renderOutput(key) {
   const input = els[key];
   const output = outputs[key];
-  const render = () => {
-    if (key === 'toneHz' || key === 'tempoBpm') {
-      output.textContent = String(Math.round(Number(input.value)));
-    } else if (key === 'noteDivision' || key === 'readMode' || key === 'shimmerMode') {
-      const label = input.options[input.selectedIndex]?.textContent;
-      output.textContent = label || input.value;
-    } else {
-      output.textContent = Number(input.value).toFixed(2);
-    }
-  };
-  input.addEventListener('input', render);
-  if (input.tagName === 'SELECT') input.addEventListener('change', render);
-  render();
+  if (!input || !output) return;
+
+  if (['toneHz', 'tempoBpm', 'offsetSamples'].includes(key)) {
+    output.textContent = String(Math.round(Number(input.value)));
+    return;
+  }
+
+  if (['noteDivision', 'readMode', 'shimmerMode', 'dcBlockEnabled', 'presetMode'].includes(key)) {
+    const label = input.options[input.selectedIndex]?.textContent;
+    output.textContent = label || input.value;
+    return;
+  }
+
+  output.textContent = Number(input.value).toFixed(2);
+}
+
+function bindOutputs() {
+  for (const key of Object.keys(outputs)) {
+    const input = els[key];
+    if (!input) continue;
+    const render = () => renderOutput(key);
+    input.addEventListener('input', render);
+    if (input.tagName === 'SELECT') input.addEventListener('change', render);
+    render();
+  }
+}
+
+function applyPreset(presetId) {
+  const preset = PRESETS[presetId] || PRESETS.A;
+  Object.entries(preset).forEach(([key, value]) => {
+    if (key === 'label') return;
+    if (els[key]) els[key].value = String(value);
+  });
+  Object.keys(outputs).forEach(renderOutput);
 }
 
 let module;
@@ -63,21 +122,24 @@ async function initWasm() {
     free: module.cwrap('orbit_wasm_free', null, []),
     process: module.cwrap('orbit_wasm_process_stereo', 'number', ['number', 'number', 'number', 'number', 'number']),
     reset: module.cwrap('orbit_wasm_reset', null, []),
+    setOrbit: module.cwrap('orbit_wasm_set_orbit', 'number', ['number']),
+    setOffsetSamples: module.cwrap('orbit_wasm_set_offset_samples', 'number', ['number']),
+    setTempoBpm: module.cwrap('orbit_wasm_set_tempo_bpm', 'number', ['number']),
+    setNoteDivision: module.cwrap('orbit_wasm_set_note_division', 'number', ['number']),
+    setStereoSpread: module.cwrap('orbit_wasm_set_stereo_spread', 'number', ['number']),
     setFeedback: module.cwrap('orbit_wasm_set_feedback', 'number', ['number']),
     setMix: module.cwrap('orbit_wasm_set_mix', 'number', ['number']),
     setToneHz: module.cwrap('orbit_wasm_set_tone_hz', 'number', ['number']),
     setSmearAmount: module.cwrap('orbit_wasm_set_smear_amount', 'number', ['number']),
     setShimmerMode: module.cwrap('orbit_wasm_set_shimmer_mode', 'number', ['number']),
-    setTempoBpm: module.cwrap('orbit_wasm_set_tempo_bpm', 'number', ['number']),
-    setNoteDivision: module.cwrap('orbit_wasm_set_note_division', 'number', ['number']),
+    setDcBlockEnabled: module.cwrap('orbit_wasm_set_dc_block_enabled', 'number', ['number']),
     setReadMode: module.cwrap('orbit_wasm_set_read_mode', 'number', ['number'])
   };
 
   const ok = api.init(48000, MAX_DELAY_SAMPLES);
   if (!ok) throw new Error('orbit_wasm_init falhou');
-  applyReadModeDefaults();
-  api.setReadMode(Number(els.readMode.value));
 
+  applyParams();
   els.status.textContent = 'WASM pronto. Selecione um arquivo de áudio.';
   els.processBtn.disabled = false;
 }
@@ -147,23 +209,18 @@ async function decodeToStereoFloat(file) {
 }
 
 function applyParams() {
+  api.setOrbit(Number(els.orbit.value));
+  api.setOffsetSamples(Number(els.offsetSamples.value));
+  api.setTempoBpm(Number(els.tempoBpm.value));
+  api.setNoteDivision(Number(els.noteDivision.value));
+  api.setStereoSpread(Number(els.stereoSpread.value));
   api.setFeedback(Number(els.feedback.value));
   api.setMix(Number(els.mix.value));
   api.setToneHz(Number(els.toneHz.value));
   api.setSmearAmount(Number(els.smearAmount.value));
   api.setShimmerMode(Number(els.shimmerMode.value));
-  api.setTempoBpm(Number(els.tempoBpm.value));
-  api.setNoteDivision(Number(els.noteDivision.value));
+  api.setDcBlockEnabled(Number(els.dcBlockEnabled.value));
   api.setReadMode(Number(els.readMode.value));
-}
-
-function applyReadModeDefaults() {
-  const readMode = Number(els.readMode.value);
-  if (readMode !== READ_MODE_ACCIDENTAL_REVERSE) return;
-  els.toneHz.value = String(REVERSE_LEGACY_DEFAULTS.toneHz);
-  els.smearAmount.value = String(REVERSE_LEGACY_DEFAULTS.smearAmount);
-  outputs.toneHz.textContent = String(REVERSE_LEGACY_DEFAULTS.toneHz);
-  outputs.smearAmount.textContent = Number(REVERSE_LEGACY_DEFAULTS.smearAmount).toFixed(2);
 }
 
 function processStereoBuffer(left, right) {
@@ -181,6 +238,8 @@ function processStereoBuffer(left, right) {
 
   try {
     api.reset();
+    applyParams();
+
     for (let pos = 0; pos < left.length; pos += BLOCK_SIZE) {
       const len = Math.min(BLOCK_SIZE, left.length - pos);
       inBlockL.fill(0);
@@ -218,7 +277,6 @@ els.processBtn.addEventListener('click', async () => {
   els.status.textContent = 'Decodificando áudio...';
 
   try {
-    applyParams();
     const { sampleRate, left, right } = await decodeToStereoFloat(file);
 
     els.status.textContent = 'Processando com Orbit Echo...';
@@ -239,9 +297,13 @@ els.processBtn.addEventListener('click', async () => {
   }
 });
 
-els.readMode.addEventListener('change', () => {
-  applyReadModeDefaults();
+els.presetMode.addEventListener('change', () => {
+  applyPreset(els.presetMode.value);
+  if (api) applyParams();
 });
+
+bindOutputs();
+applyPreset('A');
 
 initWasm().catch((err) => {
   els.status.textContent = `Falha ao iniciar WASM: ${err instanceof Error ? err.message : String(err)}`;

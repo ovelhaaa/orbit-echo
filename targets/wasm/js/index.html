@@ -30,7 +30,7 @@
       }
       .row {
         display: grid;
-        grid-template-columns: 170px 1fr 80px;
+        grid-template-columns: 170px 1fr 120px;
         gap: 10px;
         align-items: center;
         margin-bottom: 8px;
@@ -58,6 +58,7 @@
       #status { font-size: 0.95rem; }
       audio { width: 100%; margin-top: 12px; }
       a { color: #80a5ff; }
+      .hint { color: #98a7c9; font-size: 0.85rem; margin-top: 8px; }
     </style>
   </head>
   <body>
@@ -73,19 +74,42 @@
 
         <div class="panel">
           <div class="row">
+            <label for="presetMode">Preset de inicialização</label>
+            <select id="presetMode">
+              <option value="A" selected>Preset A · Reverse Legacy</option>
+              <option value="B">Preset B · Orbit Modern</option>
+            </select>
+            <output id="presetModeOut">Preset A · Reverse Legacy</output>
+          </div>
+          <div class="row">
             <label for="feedback">Feedback</label>
-            <input id="feedback" type="range" min="0" max="0.95" step="0.01" value="0.4" />
-            <output id="feedbackOut">0.40</output>
+            <input id="feedback" type="range" min="0" max="0.95" step="0.01" value="0.45" />
+            <output id="feedbackOut">0.45</output>
           </div>
           <div class="row">
             <label for="mix">Mix</label>
-            <input id="mix" type="range" min="0" max="1" step="0.01" value="0.35" />
-            <output id="mixOut">0.35</output>
+            <input id="mix" type="range" min="0" max="1" step="0.01" value="0.45" />
+            <output id="mixOut">0.45</output>
+          </div>
+          <div class="row">
+            <label for="orbit">Orbit</label>
+            <input id="orbit" type="range" min="0" max="1" step="0.01" value="0.00" />
+            <output id="orbitOut">0.00</output>
+          </div>
+          <div class="row">
+            <label for="offsetSamples">Offset (samples)</label>
+            <input id="offsetSamples" type="range" min="-24000" max="24000" step="1" value="0" />
+            <output id="offsetSamplesOut">0</output>
+          </div>
+          <div class="row">
+            <label for="stereoSpread">Stereo spread</label>
+            <input id="stereoSpread" type="range" min="0" max="1" step="0.01" value="0.00" />
+            <output id="stereoSpreadOut">0.00</output>
           </div>
           <div class="row">
             <label for="toneHz">Tone (Hz)</label>
-            <input id="toneHz" type="range" min="200" max="18000" step="50" value="6500" />
-            <output id="toneHzOut">6500</output>
+            <input id="toneHz" type="range" min="200" max="18000" step="50" value="1800" />
+            <output id="toneHzOut">1800</output>
           </div>
           <div class="row">
             <label for="smearAmount">Smear</label>
@@ -98,13 +122,13 @@
             <output id="tempoBpmOut">120</output>
           </div>
           <div class="row">
-            <label for="noteDivision">Divisão</label>
+            <label for="noteDivision">Subdivisão</label>
             <select id="noteDivision">
               <option value="0.25">1/16</option>
               <option value="0.75">1/8 pontuada</option>
               <option value="0.5">1/8</option>
               <option value="1.5">1/4 pontuada</option>
-              <option value="1" selected>1/4</option>
+              <option value="1">1/4</option>
               <option value="3">1/2 pontuada</option>
               <option value="2">1/2</option>
             </select>
@@ -114,18 +138,27 @@
             <label for="readMode">Modo de leitura</label>
             <select id="readMode">
               <option value="0">Orbit</option>
-              <option value="1" data-tone-hz="1800" selected>Glitch Delay (AccidentalReverse)</option>
+              <option value="1" selected>AccidentalReverse</option>
             </select>
-            <output id="readModeOut">Glitch Delay (AccidentalReverse)</output>
+            <output id="readModeOut">AccidentalReverse</output>
           </div>
           <div class="row">
-            <label for="shimmerMode">Shimmer mode</label>
-            <select id="shimmerMode">
-              <option value="1" selected>Ativo (smear/diffusion)</option>
-              <option value="0">Bypass (som cru)</option>
+            <label for="dcBlockEnabled">DC-block</label>
+            <select id="dcBlockEnabled">
+              <option value="1" selected>Ligado</option>
+              <option value="0">Desligado</option>
             </select>
-            <output id="shimmerModeOut">Ativo (smear/diffusion)</output>
+            <output id="dcBlockEnabledOut">Ligado</output>
           </div>
+          <div class="row">
+            <label for="shimmerMode">Modo shimmer</label>
+            <select id="shimmerMode">
+              <option value="1">Ativo (smear/diffusion)</option>
+              <option value="0" selected>Bypass (som cru)</option>
+            </select>
+            <output id="shimmerModeOut">Bypass (som cru)</output>
+          </div>
+          <p class="hint">Orbit/Offset/Stereo spread têm mais impacto no modo de leitura Orbit.</p>
         </div>
 
         <div class="actions">
