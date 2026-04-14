@@ -2,7 +2,7 @@ import createOrbitModule from './orbit_delay_wasm.js';
 
 const BLOCK_SIZE = 128;
 const MAX_DELAY_SAMPLES = 48000 * 2;
-const UI_SAMPLE_RATE = 48000;
+const DEFAULT_UI_SAMPLE_RATE = 48000;
 const TONE_MIN_HZ = 300;
 const TONE_MAX_HZ = 12000;
 const TAP_BUFFER_SIZE = 8;
@@ -108,6 +108,8 @@ const repeatState = {
   projectKey: '',
   monitorId: 0
 };
+
+let uiSampleRate = DEFAULT_UI_SAMPLE_RATE;
 
 function getProjectRepeatKey() {
   const file = els.file?.files?.[0];
@@ -277,7 +279,7 @@ function gainDbToLinear(db) {
 }
 
 function msToSamples(ms) {
-  return ms * (UI_SAMPLE_RATE / 1000);
+  return ms * (uiSampleRate / 1000);
 }
 
 function hzToToneNorm(hz) {
@@ -406,13 +408,30 @@ function applyPreset(presetId) {
 let module;
 let api;
 
+const paramConverters = {
+  orbit: (v) => Number(v),
+  offsetSamples: (v) => msToSamples(Number(v)),
+  tempoBpm: (v) => Number(v),
+  noteDivision: (v) => Number(v),
+  stereoSpread: (v) => msToSamples(Number(v)),
+  feedback: (v) => Number(v),
+  mix: (v) => Number(v),
+  inputGain: (v) => gainDbToLinear(Number(v)),
+  outputGain: (v) => gainDbToLinear(Number(v)),
+  toneHz: (v) => toneNormToHz(Number(v)),
+  smearAmount: (v) => Number(v),
+  shimmerMode: (v) => Number(v),
+  dcBlockEnabled: (v) => Number(v),
+  readMode: (v) => Number(v)
+};
+
 async function initWasm() {
   module = await createOrbitModule();
   api = {
     init: module.cwrap('orbit_wasm_init', 'number', ['number', 'number']),
     free: module.cwrap('orbit_wasm_free', null, []),
     process: module.cwrap('orbit_wasm_process_stereo', 'number', ['number', 'number', 'number', 'number', 'number']),
-    reset: module.cwrap('orbit_wasm_reset', null, []),
+    reset: module.cwrap('orbit_wasm_reset', null, ['number']),
     setOrbit: module.cwrap('orbit_wasm_set_orbit', 'number', ['number']),
     setOffsetSamples: module.cwrap('orbit_wasm_set_offset_samples', 'number', ['number']),
     setTempoBpm: module.cwrap('orbit_wasm_set_tempo_bpm', 'number', ['number']),
@@ -431,6 +450,7 @@ async function initWasm() {
 
   const ok = api.init(48000, MAX_DELAY_SAMPLES);
   if (!ok) throw new Error('orbit_wasm_init falhou');
+  uiSampleRate = DEFAULT_UI_SAMPLE_RATE;
 
   applyParams();
   els.status.textContent = 'WASM pronto. Selecione um arquivo de áudio.';
@@ -501,21 +521,34 @@ async function decodeToStereoFloat(file) {
   };
 }
 
+function setParam(key) {
+  if (!api) return;
+  const el = els[key];
+  const converter = paramConverters[key];
+  if (!el || !converter) return;
+
+  const value = converter(el.value);
+  switch (key) {
+    case 'orbit': api.setOrbit(value); break;
+    case 'offsetSamples': api.setOffsetSamples(value); break;
+    case 'tempoBpm': api.setTempoBpm(value); break;
+    case 'noteDivision': api.setNoteDivision(value); break;
+    case 'stereoSpread': api.setStereoSpread(value); break;
+    case 'feedback': api.setFeedback(value); break;
+    case 'mix': api.setMix(value); break;
+    case 'inputGain': api.setInputGain(value); break;
+    case 'outputGain': api.setOutputGain(value); break;
+    case 'toneHz': api.setToneHz(value); break;
+    case 'smearAmount': api.setSmearAmount(value); break;
+    case 'shimmerMode': api.setShimmerMode(value); break;
+    case 'dcBlockEnabled': api.setDcBlockEnabled(value); break;
+    case 'readMode': api.setReadMode(value); break;
+    default: break;
+  }
+}
+
 function applyParams() {
-  api.setOrbit(Number(els.orbit.value));
-  api.setOffsetSamples(msToSamples(Number(els.offsetSamples.value)));
-  api.setTempoBpm(Number(els.tempoBpm.value));
-  api.setNoteDivision(Number(els.noteDivision.value));
-  api.setStereoSpread(msToSamples(Number(els.stereoSpread.value)));
-  api.setFeedback(Number(els.feedback.value));
-  api.setMix(Number(els.mix.value));
-  api.setInputGain(gainDbToLinear(Number(els.inputGain.value)));
-  api.setOutputGain(gainDbToLinear(Number(els.outputGain.value)));
-  api.setToneHz(toneNormToHz(Number(els.toneHz.value)));
-  api.setSmearAmount(Number(els.smearAmount.value));
-  api.setShimmerMode(Number(els.shimmerMode.value));
-  api.setDcBlockEnabled(Number(els.dcBlockEnabled.value));
-  api.setReadMode(Number(els.readMode.value));
+  Object.keys(paramConverters).forEach(setParam);
 }
 
 function processStereoBuffer(left, right) {
@@ -532,7 +565,7 @@ function processStereoBuffer(left, right) {
   const inBlockR = new Float32Array(BLOCK_SIZE);
 
   try {
-    api.reset();
+    api.reset(uiSampleRate);
     applyParams();
 
     for (let pos = 0; pos < left.length; pos += BLOCK_SIZE) {
@@ -583,8 +616,7 @@ function bindRealtimeParamUpdates() {
     if (!el) continue;
     const evt = el.tagName === 'SELECT' ? 'change' : 'input';
     el.addEventListener(evt, () => {
-      if (!api) return;
-      applyParams();
+      setParam(key);
     });
   }
 }
@@ -602,6 +634,11 @@ els.processBtn.addEventListener('click', async () => {
 
   try {
     const { sampleRate, left, right } = await decodeToStereoFloat(file);
+    uiSampleRate = sampleRate;
+    if (api) {
+      api.reset(uiSampleRate);
+      applyParams();
+    }
 
     els.status.textContent = 'Processando com Orbit Echo...';
     const { outL, outR } = processStereoBuffer(left, right);

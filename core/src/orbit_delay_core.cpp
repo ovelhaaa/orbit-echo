@@ -79,24 +79,76 @@ void OrbitDelayCore::applyPendingParamsIfNeeded() {
     const bool nextShimmer = pendingShimmerModeEnabled_.load(std::memory_order_relaxed);
     const ReadMode nextReadMode = static_cast<ReadMode>(pendingReadMode_.load(std::memory_order_relaxed));
 
+    bool smoothTargetsChanged = false;
+    bool tempoInputsChanged = false;
+
     const float clampedSampleRate = clampf(sanitizeFinite(nextSampleRate, kFallbackSampleRate), 1.0f, 384000.0f);
     if (sampleRate_ != clampedSampleRate) {
         sampleRate_ = clampedSampleRate;
         sampleRateDirty_ = true;
+        tempoInputsChanged = true;
     }
 
-    orbit_ = clampf(sanitizeFinite(nextOrbit, orbit_), 0.25f, 3.0f);
-    offsetSamples_ = clampf(sanitizeFinite(nextOffset, offsetSamples_), -200000.0f, 200000.0f);
-    tempoBpm_ = clampf(sanitizeFinite(nextTempoBpm, tempoBpm_), kMinTempoBpm, kMaxTempoBpm);
-    noteDivision_ = clampf(sanitizeFinite(nextNoteDivision, noteDivision_), kMinNoteDivision, kMaxNoteDivision);
-    stereoSpread_ = clampf(sanitizeFinite(nextStereoSpread, stereoSpread_), 0.0f, kStereoSpreadMax);
-    feedback_ = clampf(sanitizeFinite(nextFeedback, feedback_), 0.0f, 0.95f);
-    mix_ = clampf(sanitizeFinite(nextMix, mix_), 0.0f, 1.0f);
-    inputGain_ = clampf(sanitizeFinite(nextInputGain, inputGain_), 0.0f, 4.0f);
-    outputGain_ = clampf(sanitizeFinite(nextOutputGain, outputGain_), 0.0f, 4.0f);
-    toneHz_ = clampf(sanitizeFinite(nextToneHz, toneHz_), 300.0f, 12000.0f);
-    smear_ = clampf(sanitizeFinite(nextSmear, smear_), 0.0f, 1.0f);
-    diffuserStages_ = (nextDiffuserStages > AllpassDiffuser::kMaxStages) ? AllpassDiffuser::kMaxStages : nextDiffuserStages;
+    const float clampedOrbit = clampf(sanitizeFinite(nextOrbit, orbit_), 0.25f, 3.0f);
+    if (orbit_ != clampedOrbit) {
+        orbit_ = clampedOrbit;
+        smoothTargetsChanged = true;
+    }
+    const float clampedOffset = clampf(sanitizeFinite(nextOffset, offsetSamples_), -200000.0f, 200000.0f);
+    if (offsetSamples_ != clampedOffset) {
+        offsetSamples_ = clampedOffset;
+        smoothTargetsChanged = true;
+    }
+    const float clampedTempoBpm = clampf(sanitizeFinite(nextTempoBpm, tempoBpm_), kMinTempoBpm, kMaxTempoBpm);
+    if (tempoBpm_ != clampedTempoBpm) {
+        tempoBpm_ = clampedTempoBpm;
+        tempoInputsChanged = true;
+    }
+    const float clampedNoteDivision = clampf(sanitizeFinite(nextNoteDivision, noteDivision_), kMinNoteDivision, kMaxNoteDivision);
+    if (noteDivision_ != clampedNoteDivision) {
+        noteDivision_ = clampedNoteDivision;
+        tempoInputsChanged = true;
+    }
+    const float clampedSpread = clampf(sanitizeFinite(nextStereoSpread, stereoSpread_), 0.0f, kStereoSpreadMax);
+    if (stereoSpread_ != clampedSpread) {
+        stereoSpread_ = clampedSpread;
+        smoothTargetsChanged = true;
+    }
+    const float clampedFeedback = clampf(sanitizeFinite(nextFeedback, feedback_), 0.0f, 0.95f);
+    if (feedback_ != clampedFeedback) {
+        feedback_ = clampedFeedback;
+        smoothTargetsChanged = true;
+    }
+    const float clampedMix = clampf(sanitizeFinite(nextMix, mix_), 0.0f, 1.0f);
+    if (mix_ != clampedMix) {
+        mix_ = clampedMix;
+        smoothTargetsChanged = true;
+    }
+    const float clampedInputGain = clampf(sanitizeFinite(nextInputGain, inputGain_), 0.0f, 4.0f);
+    if (inputGain_ != clampedInputGain) {
+        inputGain_ = clampedInputGain;
+        smoothTargetsChanged = true;
+    }
+    const float clampedOutputGain = clampf(sanitizeFinite(nextOutputGain, outputGain_), 0.0f, 4.0f);
+    if (outputGain_ != clampedOutputGain) {
+        outputGain_ = clampedOutputGain;
+        smoothTargetsChanged = true;
+    }
+    const float clampedToneHz = clampf(sanitizeFinite(nextToneHz, toneHz_), 300.0f, 12000.0f);
+    if (toneHz_ != clampedToneHz) {
+        toneHz_ = clampedToneHz;
+        smoothTargetsChanged = true;
+    }
+    const float clampedSmear = clampf(sanitizeFinite(nextSmear, smear_), 0.0f, 1.0f);
+    if (smear_ != clampedSmear) {
+        smear_ = clampedSmear;
+        smoothTargetsChanged = true;
+    }
+    const uint32_t clampedStages = (nextDiffuserStages > AllpassDiffuser::kMaxStages) ? AllpassDiffuser::kMaxStages : nextDiffuserStages;
+    if (diffuserStages_ != clampedStages) {
+        diffuserStages_ = clampedStages;
+        diffuserDirty_ = true;
+    }
     dcBlockEnabled_ = nextDcBlock;
     if (shimmerModeEnabled_ != nextShimmer) {
         shimmerModeEnabled_ = nextShimmer;
@@ -110,15 +162,24 @@ void OrbitDelayCore::applyPendingParamsIfNeeded() {
             feedbackPreset_ = FeedbackPreset::ReverseLegacy;
             toneHz_ = kReverseLegacyToneHz;
             pendingToneHz_.store(toneHz_, std::memory_order_relaxed);
+            smoothTargetsChanged = true;
         } else {
             feedbackPreset_ = FeedbackPreset::Default;
         }
         lowpassDirty_ = true;
     }
 
-    tempoDelaySamples_ = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
-    smoothTargetsDirty_ = true;
-    diffuserDirty_ = true;
+    if (tempoInputsChanged) {
+        const float nextTempoDelay = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
+        if (tempoDelaySamples_ != nextTempoDelay) {
+            tempoDelaySamples_ = nextTempoDelay;
+            smoothTargetsChanged = true;
+        }
+    }
+
+    if (smoothTargetsChanged) {
+        smoothTargetsDirty_ = true;
+    }
     appliedParamVersion_ = version;
 }
 
