@@ -14,7 +14,8 @@ const els = {
   toneHz: document.getElementById('toneHz'),
   smearAmount: document.getElementById('smearAmount'),
   tempoBpm: document.getElementById('tempoBpm'),
-  noteDivision: document.getElementById('noteDivision')
+  noteDivision: document.getElementById('noteDivision'),
+  readMode: document.getElementById('readMode')
 };
 
 const outputs = {
@@ -23,7 +24,8 @@ const outputs = {
   toneHz: document.getElementById('toneHzOut'),
   smearAmount: document.getElementById('smearAmountOut'),
   tempoBpm: document.getElementById('tempoBpmOut'),
-  noteDivision: document.getElementById('noteDivisionOut')
+  noteDivision: document.getElementById('noteDivisionOut'),
+  readMode: document.getElementById('readModeOut')
 };
 
 for (const key of Object.keys(outputs)) {
@@ -32,7 +34,7 @@ for (const key of Object.keys(outputs)) {
   const render = () => {
     if (key === 'toneHz' || key === 'tempoBpm') {
       output.textContent = String(Math.round(Number(input.value)));
-    } else if (key === 'noteDivision') {
+    } else if (key === 'noteDivision' || key === 'readMode') {
       const label = input.options[input.selectedIndex]?.textContent;
       output.textContent = label || input.value;
     } else {
@@ -65,7 +67,7 @@ async function initWasm() {
 
   const ok = api.init(48000, MAX_DELAY_SAMPLES);
   if (!ok) throw new Error('orbit_wasm_init falhou');
-  api.setReadMode(1);
+  api.setReadMode(Number(els.readMode.value));
 
   els.status.textContent = 'WASM pronto. Selecione um arquivo de áudio.';
   els.processBtn.disabled = false;
@@ -142,6 +144,7 @@ function applyParams() {
   api.setSmearAmount(Number(els.smearAmount.value));
   api.setTempoBpm(Number(els.tempoBpm.value));
   api.setNoteDivision(Number(els.noteDivision.value));
+  api.setReadMode(Number(els.readMode.value));
 }
 
 function processStereoBuffer(left, right) {

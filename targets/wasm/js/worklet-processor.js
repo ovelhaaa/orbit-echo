@@ -12,6 +12,7 @@ class OrbitDelayProcessor extends AudioWorkletProcessor {
       { name: 'stereoSpread', defaultValue: 0.5, minValue: 0.0, maxValue: 1.0 },
       { name: 'feedback', defaultValue: 0.4, minValue: 0.0, maxValue: 0.98 },
       { name: 'mix', defaultValue: 0.35, minValue: 0.0, maxValue: 1.0 },
+      { name: 'readMode', defaultValue: 0.0, minValue: 0.0, maxValue: 1.0 },
       { name: 'inputGain', defaultValue: 1.0, minValue: 0.0, maxValue: 4.0 },
       { name: 'outputGain', defaultValue: 1.0, minValue: 0.0, maxValue: 4.0 },
       { name: 'toneHz', defaultValue: 6500.0, minValue: 20.0, maxValue: 20000.0 },
@@ -76,7 +77,7 @@ class OrbitDelayProcessor extends AudioWorkletProcessor {
     this.api.set_smear_amount(at('smearAmount'));
     this.api.set_diffuser_stages(Math.round(at('diffuserStages')));
     this.api.set_dc_block_enabled(at('dcBlockEnabled') >= 0.5 ? 1 : 0);
-    this.api.set_read_mode(1);
+    this.api.set_read_mode(Math.round(at('readMode')));
   }
 
   process(inputs, outputs, parameters) {
