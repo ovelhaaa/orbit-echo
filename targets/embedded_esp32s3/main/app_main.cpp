@@ -189,9 +189,9 @@ extern "C" void app_main(void) {
     }
 
     UiTft::Config uiCfg;
-    uiCfg.refreshPeriodMs = 33;
-    uiCfg.core = 1;
-    uiCfg.priority = 2;
+    uiCfg.refreshPeriodMs = board::ui::kRefreshPeriodMs;
+    uiCfg.core = board::ui::kTaskCore;
+    uiCfg.priority = board::ui::kTaskPriority;
 
     if (!app.ui.start(uiCfg, uiTick, &app)) {
         ESP_LOGW(kTag, "UI não iniciou; áudio segue ativo");
