@@ -2,26 +2,39 @@
 
 namespace orbit::embedded {
 
-ParameterBridge::ParameterBridge() : publishedVersion_(0), lastConsumedVersion_(0) {
-    slots_[0] = AudioParams{};
-    slots_[1] = AudioParams{};
+namespace {
+constexpr uint32_t kMaxSnapshotAttempts = 4u;
+} // namespace
+
+ParameterBridge::ParameterBridge() : latest_(AudioParams{}), sequence_(0u), lastConsumedSequence_(0u) {
 }
 
 void ParameterBridge::publish(const AudioParams& params) {
-    const uint32_t nextVersion = publishedVersion_.load(std::memory_order_relaxed) + 1;
-    slots_[nextVersion & 1u] = params;
-    publishedVersion_.store(nextVersion, std::memory_order_release);
+    sequence_.fetch_add(1u, std::memory_order_acq_rel); // odd -> writer ativo
+    latest_ = params;
+    sequence_.fetch_add(1u, std::memory_order_release); // even -> snapshot estável
 }
 
 bool ParameterBridge::consumeIfUpdated(AudioParams& outParams) {
-    const uint32_t version = publishedVersion_.load(std::memory_order_acquire);
-    if (version == lastConsumedVersion_) {
-        return false;
+    for (uint32_t attempt = 0; attempt < kMaxSnapshotAttempts; ++attempt) {
+        const uint32_t beginSeq = sequence_.load(std::memory_order_acquire);
+        if ((beginSeq & 1u) != 0u) {
+            continue;
+        }
+        if (beginSeq == lastConsumedSequence_) {
+            return false;
+        }
+
+        const AudioParams snapshot = latest_;
+        const uint32_t endSeq = sequence_.load(std::memory_order_acquire);
+        if (beginSeq == endSeq && (endSeq & 1u) == 0u) {
+            outParams = snapshot;
+            lastConsumedSequence_ = endSeq;
+            return true;
+        }
     }
 
-    outParams = slots_[version & 1u];
-    lastConsumedVersion_ = version;
-    return true;
+    return false;
 }
 
 } // namespace orbit::embedded

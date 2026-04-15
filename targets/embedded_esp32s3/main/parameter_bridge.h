@@ -27,9 +27,9 @@ public:
     bool consumeIfUpdated(AudioParams& outParams);
 
 private:
-    AudioParams slots_[2];
-    std::atomic<uint32_t> publishedVersion_;
-    uint32_t lastConsumedVersion_;
+    AudioParams latest_;
+    std::atomic<uint32_t> sequence_;
+    uint32_t lastConsumedSequence_;
 };
 
 } // namespace orbit::embedded

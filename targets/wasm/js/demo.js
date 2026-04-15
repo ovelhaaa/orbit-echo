@@ -19,7 +19,7 @@ const PRESETS = {
     readMode: 1,
     feedback: 0.45,
     mix: 0.45,
-    orbit: 0,
+    orbit: 0.25,
     offsetSamples: 0.0,
     stereoSpread: 0.0,
     inputGain: 0.0,
@@ -495,6 +495,11 @@ function renderOutput(key) {
     return;
   }
 
+  if (key === 'orbit' || key === 'feedback' || key === 'mix' || key === 'smearAmount') {
+    output.textContent = Number(input.value).toFixed(3);
+    return;
+  }
+
   output.textContent = Number(input.value).toFixed(2);
 }
 
@@ -729,12 +734,28 @@ function bindRealtimeParamUpdates() {
     'readMode'
   ];
 
+  const pendingKeys = new Set();
+  let rafScheduled = false;
+
+  const flushPending = () => {
+    rafScheduled = false;
+    pendingKeys.forEach((key) => setParam(key));
+    pendingKeys.clear();
+  };
+
+  const scheduleParamUpdate = (key) => {
+    pendingKeys.add(key);
+    if (rafScheduled) return;
+    rafScheduled = true;
+    requestAnimationFrame(flushPending);
+  };
+
   for (const key of paramKeys) {
     const el = els[key];
     if (!el) continue;
     const evt = el.tagName === 'SELECT' ? 'change' : 'input';
     el.addEventListener(evt, () => {
-      setParam(key);
+      scheduleParamUpdate(key);
     });
   }
 }
