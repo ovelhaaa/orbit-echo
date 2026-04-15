@@ -64,7 +64,7 @@ bool ParameterBridge::consumeIfUpdated(AudioParams& outParams) {
         snapshot.smearAmount = smearAmount_.load(std::memory_order_relaxed);
         snapshot.diffuserStages = diffuserStages_.load(std::memory_order_relaxed);
         snapshot.dcBlockEnabled = dcBlockEnabled_.load(std::memory_order_relaxed);
-        snapshot.readMode = static_cast<AudioParams::ReadMode>(readMode_.load(std::memory_order_relaxed));
+        snapshot.readMode = readMode_.load(std::memory_order_relaxed);
 
         std::atomic_thread_fence(std::memory_order_acquire);
         const uint32_t endVersion = publishedVersion_.load(std::memory_order_relaxed);
