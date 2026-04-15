@@ -238,6 +238,12 @@
               <output id="presetModeOut">Preset A · Reverse Legacy</output>
             </div>
             <div class="row">
+              <label for="presetJsonFile">Preset custom (.json)</label>
+              <input id="presetJsonFile" type="file" accept=".json,application/json" aria-label="Arquivo de preset JSON" />
+              <button id="applyPresetJsonBtn" type="button">Aplicar preset JSON</button>
+            </div>
+            <p id="presetImportStatus" class="hint">Carregue um arquivo .json para aplicar parâmetros customizados.</p>
+            <div class="row">
               <label for="feedback">Feedback</label>
               <input id="feedback" type="range" min="0" max="0.95" step="0.01" value="0.45" />
               <output id="feedbackOut">0.45</output>
