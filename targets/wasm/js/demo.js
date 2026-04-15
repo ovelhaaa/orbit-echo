@@ -653,7 +653,8 @@ function hasPresetOverwrite(nextValues) {
     if (!control) return false;
     const current = Number(control.value);
     if (!Number.isFinite(current)) return true;
-    return Math.abs(current - Number(value)) > 1e-9;
+    const target = key === 'toneHz' ? hzToToneNorm(Number(value)) : Number(value);
+    return Math.abs(current - target) > 1e-9;
   });
 }
 
