@@ -6,6 +6,11 @@
 namespace orbit::embedded {
 
 struct AudioParams {
+    enum class ReadMode : uint32_t {
+        Accidental = 0u,
+        Orbit = 1u,
+    };
+
     float orbit = 0.5f;
     float offsetSamples = 1200.0f;
     float stereoSpread = 0.0f;
@@ -17,6 +22,7 @@ struct AudioParams {
     float smearAmount = 0.0f;
     uint32_t diffuserStages = 2;
     bool dcBlockEnabled = true;
+    ReadMode readMode = ReadMode::Accidental;
 };
 
 class ParameterBridge {
@@ -41,6 +47,7 @@ private:
     std::atomic<float> smearAmount_;
     std::atomic<uint32_t> diffuserStages_;
     std::atomic<bool> dcBlockEnabled_;
+    std::atomic<AudioParams::ReadMode> readMode_;
 };
 
 } // namespace orbit::embedded

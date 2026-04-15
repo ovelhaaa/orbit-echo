@@ -43,6 +43,9 @@ void applyParams(dsp::OrbitDelayCore& core, const AudioParams& p) {
     core.setSmearAmount(p.smearAmount);
     core.setDiffuserStages(p.diffuserStages);
     core.setDcBlockEnabled(p.dcBlockEnabled);
+    core.setReadMode(p.readMode == AudioParams::ReadMode::Accidental
+                         ? dsp::OrbitDelayCore::ReadMode::AccidentalReverse
+                         : dsp::OrbitDelayCore::ReadMode::Orbit);
 }
 
 void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInterleaved, size_t frames) {
