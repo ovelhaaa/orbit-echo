@@ -121,6 +121,7 @@ extern "C" void app_main(void) {
     app.core.reset(48000.0f);
 
     AudioParams initialParams;
+    initialParams.readMode = AudioParams::ReadMode::Accidental;
     initialParams.dcBlockEnabled = true;
     app.params.publish(initialParams);
 
