@@ -20,7 +20,8 @@ ParameterBridge::ParameterBridge()
       smearAmount_(0.0f),
       diffuserStages_(2u),
       dcBlockEnabled_(true),
-      readMode_(AudioParams::ReadMode::Accidental) {
+      readMode_(AudioParams::ReadMode::Accidental),
+      sourceType_(AudioSourceType::InternalTest) {
 }
 
 void ParameterBridge::publish(const AudioParams& params) {
@@ -39,6 +40,7 @@ void ParameterBridge::publish(const AudioParams& params) {
     diffuserStages_.store(params.diffuserStages, std::memory_order_relaxed);
     dcBlockEnabled_.store(params.dcBlockEnabled, std::memory_order_relaxed);
     readMode_.store(params.readMode, std::memory_order_relaxed);
+    sourceType_.store(params.sourceType, std::memory_order_relaxed);
     publishedVersion_.store(baseVersion + 2u, std::memory_order_release); // snapshot estável (par)
 }
 
@@ -65,6 +67,7 @@ bool ParameterBridge::consumeIfUpdated(AudioParams& outParams) {
         snapshot.diffuserStages = diffuserStages_.load(std::memory_order_relaxed);
         snapshot.dcBlockEnabled = dcBlockEnabled_.load(std::memory_order_relaxed);
         snapshot.readMode = readMode_.load(std::memory_order_relaxed);
+        snapshot.sourceType = sourceType_.load(std::memory_order_relaxed);
 
         std::atomic_thread_fence(std::memory_order_acquire);
         const uint32_t endVersion = publishedVersion_.load(std::memory_order_relaxed);
