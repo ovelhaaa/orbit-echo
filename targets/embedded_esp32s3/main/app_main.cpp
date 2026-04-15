@@ -29,7 +29,7 @@ struct AppContext {
     AudioSourceType sourceType = AudioSourceType::ExternalI2s;
     AudioSourceType activeSourceType = AudioSourceType::ExternalI2s;
     I2sInputSource externalI2sSource;
-    InternalTestSilenceSource internalTestSource;
+    InternalTestTriangleSource internalTestSource;
     void* activeSource = &externalI2sSource;
 
     float* delayBufferL = nullptr;
@@ -114,7 +114,7 @@ void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInt
 
     switch (app->activeSourceType) {
         case AudioSourceType::InternalTest: {
-            auto* source = static_cast<InternalTestSilenceSource*>(app->activeSource);
+            auto* source = static_cast<InternalTestTriangleSource*>(app->activeSource);
             source->prepare(inInterleaved);
             processWithSource(app, *source, outInterleaved, frames);
             break;
@@ -171,6 +171,10 @@ extern "C" void app_main(void) {
     initialParams.readMode = AudioParams::ReadMode::Accidental;
     initialParams.dcBlockEnabled = true;
     app.params.publish(initialParams);
+
+    app.internalTestSource.setSampleRate(static_cast<float>(board::audio::kSampleRate));
+    app.internalTestSource.setFrequencyHz(220.0f);
+    app.internalTestSource.setLevel(0.15f);
 
     AudioEngineEsp32::Config audioCfg;
     audioCfg.sampleRate = board::audio::kSampleRate;
