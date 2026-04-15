@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "board_config.h"
 #include "driver/i2s.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -14,7 +15,7 @@ class AudioEngineEsp32 {
 public:
     struct Config {
         i2s_port_t port = I2S_NUM_0;
-        int sampleRate = 48000;
+        int sampleRate = board::audio::kSampleRate;
         int bitsPerSample = 32;
         int dmaBufferCount = 6;
         int dmaBufferFrames = 128;
@@ -22,10 +23,10 @@ public:
         i2s_channel_fmt_t channelFormat = I2S_CHANNEL_FMT_RIGHT_LEFT;
         bool enableTx = true;
         bool enableRx = true;
-        int bclkGpio = 4;
-        int wsGpio = 5;
-        int doutGpio = 6;
-        int dinGpio = 7;
+        int bclkGpio = board::audio::i2s::kBclkGpio;
+        int wsGpio = board::audio::i2s::kLrckGpio;
+        int doutGpio = board::audio::i2s::kDoutGpio;
+        int dinGpio = board::audio::i2s::kDinGpio;
         bool useApll = false;
     };
 

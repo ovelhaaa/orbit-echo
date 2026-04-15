@@ -1,4 +1,5 @@
 #include "audio_engine_esp32.h"
+#include "board_config.h"
 #include "parameter_bridge.h"
 #include "ui_tft.h"
 
@@ -118,7 +119,7 @@ extern "C" void app_main(void) {
     }
 
     app.core.attachBuffers(app.delayBufferL, app.delayBufferR, kMaxDelaySamples);
-    app.core.reset(48000.0f);
+    app.core.reset(static_cast<float>(board::audio::kSampleRate));
 
     AudioParams initialParams;
     initialParams.readMode = AudioParams::ReadMode::Accidental;
@@ -126,7 +127,7 @@ extern "C" void app_main(void) {
     app.params.publish(initialParams);
 
     AudioEngineEsp32::Config audioCfg;
-    audioCfg.sampleRate = 48000;
+    audioCfg.sampleRate = board::audio::kSampleRate;
     audioCfg.enableRx = true;
     audioCfg.enableTx = true;
 
