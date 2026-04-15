@@ -12,6 +12,23 @@ const TAP_EXPIRE_MS = 4000;
 const BYPASS_XFADE_SECONDS = 0.03;
 const REPEAT_STORAGE_KEY = 'orbit-echo:transport:repeat-mode';
 const PROJECT_REPEAT_PREFIX = 'orbit-echo:transport:repeat-project:';
+const PRESET_SCHEMA_VERSION = 1;
+const PARAM_KEYS = [
+  'orbit',
+  'offsetSamples',
+  'tempoBpm',
+  'noteDivision',
+  'stereoSpread',
+  'feedback',
+  'mix',
+  'inputGain',
+  'outputGain',
+  'toneHz',
+  'smearAmount',
+  'shimmerMode',
+  'dcBlockEnabled',
+  'readMode'
+];
 
 const PRESETS = {
   A: {
@@ -57,6 +74,9 @@ const els = {
   preview: document.getElementById('preview'),
   downloadLink: document.getElementById('downloadLink'),
   presetMode: document.getElementById('presetMode'),
+  presetJsonFile: document.getElementById('presetJsonFile'),
+  applyPresetJsonBtn: document.getElementById('applyPresetJsonBtn'),
+  presetImportStatus: document.getElementById('presetImportStatus'),
   feedback: document.getElementById('feedback'),
   mix: document.getElementById('mix'),
   orbit: document.getElementById('orbit'),
@@ -548,6 +568,164 @@ const paramConverters = {
   readMode: (v) => Number(v)
 };
 
+const presetValidators = {
+  orbit: (v) => expectNumberRange(v, 0, 1),
+  offsetSamples: (v) => expectNumberRange(v, -500, 500),
+  tempoBpm: (v) => expectNumberRange(v, TAP_MIN_BPM, TAP_MAX_BPM),
+  noteDivision: (v) => expectOneOf(v, [0.25, 0.5, 0.75, 1, 1.5, 2, 3]),
+  stereoSpread: (v) => expectNumberRange(v, 0, 100),
+  feedback: (v) => expectNumberRange(v, 0, 0.95),
+  mix: (v) => expectNumberRange(v, 0, 1),
+  inputGain: (v) => expectNumberRange(v, -24, 12),
+  outputGain: (v) => expectNumberRange(v, -24, 12),
+  toneHz: (v) => expectNumberRange(v, TONE_MIN_HZ, TONE_MAX_HZ),
+  smearAmount: (v) => expectNumberRange(v, 0, 1),
+  shimmerMode: (v) => expectOneOf(v, [0, 1]),
+  dcBlockEnabled: (v) => expectOneOf(v, [0, 1]),
+  readMode: (v) => expectOneOf(v, [0, 1])
+};
+
+function setPresetImportStatus(message, type = 'info') {
+  if (!els.presetImportStatus) return;
+  const prefix = type === 'error' ? '❌ ' : type === 'warn' ? '⚠️ ' : '✅ ';
+  els.presetImportStatus.textContent = `${prefix}${message}`;
+}
+
+function expectNumber(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+function expectNumberRange(value, min, max) {
+  const n = expectNumber(value);
+  if (n === null || n < min || n > max) return null;
+  return n;
+}
+
+function expectOneOf(value, accepted) {
+  const n = expectNumber(value);
+  if (n === null || !accepted.includes(n)) return null;
+  return n;
+}
+
+function normalizePresetJson(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('Formato inválido: o preset deve ser um objeto JSON.');
+  }
+
+  const schemaVersion = raw.schemaVersion ?? 1;
+  if (schemaVersion !== PRESET_SCHEMA_VERSION) {
+    throw new Error(`Incompatibilidade de schema: recebido v${schemaVersion}, esperado v${PRESET_SCHEMA_VERSION}.`);
+  }
+
+  const sourceParams = raw.params && typeof raw.params === 'object' ? raw.params : raw;
+  const nextValues = {};
+  const warnings = [];
+  const errors = [];
+
+  Object.entries(sourceParams).forEach(([key, value]) => {
+    if (key === 'label' || key === 'schemaVersion' || key === 'name') return;
+    if (!PARAM_KEYS.includes(key)) {
+      warnings.push(`Parâmetro desconhecido "${key}" foi ignorado.`);
+      return;
+    }
+
+    const validator = presetValidators[key];
+    const valid = validator ? validator(value) : null;
+    if (valid === null) {
+      errors.push(`"${key}" inválido (${JSON.stringify(value)}).`);
+      return;
+    }
+    nextValues[key] = valid;
+  });
+
+  if (Object.keys(nextValues).length === 0) {
+    errors.push('Nenhum parâmetro válido encontrado para aplicar.');
+  }
+
+  return { nextValues, warnings, errors };
+}
+
+function hasPresetOverwrite(nextValues) {
+  return Object.entries(nextValues).some(([key, value]) => {
+    const control = els[key];
+    if (!control) return false;
+    const current = Number(control.value);
+    if (!Number.isFinite(current)) return true;
+    return Math.abs(current - Number(value)) > 1e-9;
+  });
+}
+
+function applyNormalizedPresetValues(nextValues) {
+  Object.entries(nextValues).forEach(([key, value]) => {
+    const control = els[key];
+    if (!control) return;
+    if (key === 'toneHz') {
+      control.value = String(hzToToneNorm(Number(value)));
+      return;
+    }
+    control.value = String(value);
+  });
+  Object.keys(outputs).forEach(renderOutput);
+  updateTapTempoOut();
+  refreshLoopPoints();
+  if (api) applyParams();
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
+async function handlePresetJsonImport() {
+  const file = els.presetJsonFile?.files?.[0];
+  if (!file) {
+    setPresetImportStatus('Selecione um arquivo .json antes de aplicar.', 'error');
+    return;
+  }
+
+  if (!file.name.toLowerCase().endsWith('.json')) {
+    setPresetImportStatus('Arquivo inválido: use extensão .json.', 'error');
+    return;
+  }
+
+  try {
+    const text = await readFileAsText(file);
+    const parsed = JSON.parse(text);
+    const { nextValues, warnings, errors } = normalizePresetJson(parsed);
+    if (errors.length > 0) {
+      setPresetImportStatus(`Preset rejeitado: ${errors.join(' ')}`, 'error');
+      return;
+    }
+
+    if (hasPresetOverwrite(nextValues)) {
+      const confirmed = window.confirm('Este preset vai sobrescrever os parâmetros atuais. Deseja continuar?');
+      if (!confirmed) {
+        setPresetImportStatus('Aplicação cancelada pelo usuário.', 'warn');
+        return;
+      }
+    }
+
+    applyNormalizedPresetValues(nextValues);
+    if (warnings.length > 0) {
+      setPresetImportStatus(`Preset aplicado com avisos: ${warnings.join(' ')}`, 'warn');
+      return;
+    }
+    setPresetImportStatus('Preset aplicado com sucesso.');
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      setPresetImportStatus('JSON inválido: verifique a sintaxe do arquivo.', 'error');
+      return;
+    }
+    setPresetImportStatus(`Falha ao aplicar preset: ${err instanceof Error ? err.message : String(err)}`, 'error');
+  }
+}
+
 async function initWasm() {
   module = await createOrbitModule();
   api = {
@@ -717,23 +895,6 @@ function processStereoBuffer(left, right) {
 }
 
 function bindRealtimeParamUpdates() {
-  const paramKeys = [
-    'orbit',
-    'offsetSamples',
-    'tempoBpm',
-    'noteDivision',
-    'stereoSpread',
-    'feedback',
-    'mix',
-    'inputGain',
-    'outputGain',
-    'toneHz',
-    'smearAmount',
-    'shimmerMode',
-    'dcBlockEnabled',
-    'readMode'
-  ];
-
   const pendingKeys = new Set();
   let rafScheduled = false;
 
@@ -750,7 +911,7 @@ function bindRealtimeParamUpdates() {
     requestAnimationFrame(flushPending);
   };
 
-  for (const key of paramKeys) {
+  for (const key of PARAM_KEYS) {
     const el = els[key];
     if (!el) continue;
     const evt = el.tagName === 'SELECT' ? 'change' : 'input';
@@ -815,6 +976,9 @@ els.processBtn.addEventListener('click', async () => {
 els.presetMode.addEventListener('change', () => {
   applyPreset(els.presetMode.value);
   if (api) applyParams();
+});
+els.applyPresetJsonBtn?.addEventListener('click', () => {
+  handlePresetJsonImport();
 });
 
 bindOutputs();
