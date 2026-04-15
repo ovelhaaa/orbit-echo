@@ -16,9 +16,9 @@ public:
     struct Config {
         i2s_port_t port = I2S_NUM_0;
         int sampleRate = board::audio::kSampleRate;
-        int bitsPerSample = 32;
-        int dmaBufferCount = 6;
-        int dmaBufferFrames = 128;
+        int bitsPerSample = board::audio::kBitsPerSample;
+        int dmaBufferCount = board::audio::kDmaBufferCount;
+        int dmaBufferFrames = board::audio::kDmaBufferFrames;
         i2s_comm_format_t commFormat = I2S_COMM_FORMAT_STAND_I2S;
         i2s_channel_fmt_t channelFormat = I2S_CHANNEL_FMT_RIGHT_LEFT;
         bool enableTx = true;
