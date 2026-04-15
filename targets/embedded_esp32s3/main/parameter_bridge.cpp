@@ -38,7 +38,7 @@ void ParameterBridge::publish(const AudioParams& params) {
     smearAmount_.store(params.smearAmount, std::memory_order_relaxed);
     diffuserStages_.store(params.diffuserStages, std::memory_order_relaxed);
     dcBlockEnabled_.store(params.dcBlockEnabled, std::memory_order_relaxed);
-    readMode_.store(static_cast<uint32_t>(params.readMode), std::memory_order_relaxed);
+    readMode_.store(params.readMode, std::memory_order_relaxed);
     publishedVersion_.store(baseVersion + 2u, std::memory_order_release); // snapshot estável (par)
 }
 
