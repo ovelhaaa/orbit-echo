@@ -32,6 +32,20 @@ struct AppContext {
 };
 
 void applyParams(dsp::OrbitDelayCore& core, const AudioParams& p) {
+    dsp::OrbitDelayCore::ReadMode coreReadMode = dsp::OrbitDelayCore::ReadMode::Orbit;
+    switch (p.readMode) {
+        case AudioParams::ReadMode::Accidental:
+            coreReadMode = dsp::OrbitDelayCore::ReadMode::AccidentalReverse;
+            break;
+        case AudioParams::ReadMode::Orbit:
+            coreReadMode = dsp::OrbitDelayCore::ReadMode::Orbit;
+            break;
+        default:
+            coreReadMode = dsp::OrbitDelayCore::ReadMode::Orbit;
+            break;
+    }
+    core.setReadMode(coreReadMode);
+
     core.setOrbit(p.orbit);
     core.setOffsetSamples(p.offsetSamples);
     core.setStereoSpread(p.stereoSpread);
@@ -43,9 +57,6 @@ void applyParams(dsp::OrbitDelayCore& core, const AudioParams& p) {
     core.setSmearAmount(p.smearAmount);
     core.setDiffuserStages(p.diffuserStages);
     core.setDcBlockEnabled(p.dcBlockEnabled);
-    core.setReadMode(p.readMode == AudioParams::ReadMode::Accidental
-                         ? dsp::OrbitDelayCore::ReadMode::AccidentalReverse
-                         : dsp::OrbitDelayCore::ReadMode::Orbit);
 }
 
 void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInterleaved, size_t frames) {
