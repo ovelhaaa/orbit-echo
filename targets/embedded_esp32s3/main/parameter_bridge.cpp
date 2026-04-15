@@ -20,7 +20,7 @@ ParameterBridge::ParameterBridge()
       smearAmount_(0.0f),
       diffuserStages_(2u),
       dcBlockEnabled_(true),
-      readMode_(static_cast<uint32_t>(AudioParams::ReadMode::Accidental)) {
+      readMode_(AudioParams::ReadMode::Accidental) {
 }
 
 void ParameterBridge::publish(const AudioParams& params) {
