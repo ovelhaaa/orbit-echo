@@ -9,6 +9,7 @@ idf_component_register(
   SRCS
     main/app_main.cpp
     main/audio_engine_esp32.cpp
+    main/audio_source.cpp
     main/parameter_bridge.cpp
     main/ui_tft.cpp
     ../../core/src/orbit_delay_core.cpp
