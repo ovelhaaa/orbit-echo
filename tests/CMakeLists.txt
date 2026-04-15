@@ -21,3 +21,11 @@ add_executable(render_golden
 )
 target_link_libraries(render_golden PRIVATE orbit_delay_core)
 add_test(NAME render_golden COMMAND render_golden)
+
+add_executable(test_parameter_bridge
+  test_parameter_bridge.cpp
+  ../targets/embedded_esp32s3/main/parameter_bridge.cpp
+)
+target_include_directories(test_parameter_bridge PRIVATE ../targets/embedded_esp32s3/main)
+target_link_libraries(test_parameter_bridge PRIVATE orbit_delay_core)
+add_test(NAME test_parameter_bridge COMMAND test_parameter_bridge)
