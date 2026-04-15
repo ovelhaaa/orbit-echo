@@ -27,9 +27,20 @@ public:
     bool consumeIfUpdated(AudioParams& outParams);
 
 private:
-    AudioParams latest_;
-    std::atomic<uint32_t> sequence_;
-    uint32_t lastConsumedSequence_;
+    std::atomic<uint32_t> publishedVersion_;
+    uint32_t lastConsumedVersion_;
+
+    std::atomic<float> orbit_;
+    std::atomic<float> offsetSamples_;
+    std::atomic<float> stereoSpread_;
+    std::atomic<float> feedback_;
+    std::atomic<float> mix_;
+    std::atomic<float> inputGain_;
+    std::atomic<float> outputGain_;
+    std::atomic<float> toneHz_;
+    std::atomic<float> smearAmount_;
+    std::atomic<uint32_t> diffuserStages_;
+    std::atomic<bool> dcBlockEnabled_;
 };
 
 } // namespace orbit::embedded
