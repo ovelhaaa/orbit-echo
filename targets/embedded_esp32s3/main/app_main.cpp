@@ -1,4 +1,5 @@
 #include "audio_engine_esp32.h"
+#include "audio_source.h"
 #include "board_config.h"
 #include "parameter_bridge.h"
 #include "ui_tft.h"
@@ -24,6 +25,10 @@ struct AppContext {
     ParameterBridge params;
     AudioEngineEsp32 audio;
     UiTft ui;
+
+    AudioSourceType sourceType = AudioSourceType::ExternalI2s;
+    I2sInputSource externalI2sSource;
+    InternalTestSilenceSource internalTestSource;
 
     float* delayBufferL = nullptr;
     float* delayBufferR = nullptr;
@@ -68,9 +73,13 @@ void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInt
         applyParams(app->core, params);
     }
 
+    AudioSource& source = selectAudioSource(app->sourceType, app->externalI2sSource, app->internalTestSource);
+    source.prepare(inInterleaved, frames);
+
     for (size_t i = 0; i < frames; ++i) {
-        const float inL = inInterleaved ? static_cast<float>(inInterleaved[i * 2]) / 2147483648.0f : 0.0f;
-        const float inR = inInterleaved ? static_cast<float>(inInterleaved[i * 2 + 1]) / 2147483648.0f : 0.0f;
+        float inL = 0.0f;
+        float inR = 0.0f;
+        source.renderFrame(i, inL, inR);
 
         float outL = 0.0f;
         float outR = 0.0f;
