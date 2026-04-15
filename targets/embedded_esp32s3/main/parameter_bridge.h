@@ -47,7 +47,7 @@ private:
     std::atomic<float> smearAmount_;
     std::atomic<uint32_t> diffuserStages_;
     std::atomic<bool> dcBlockEnabled_;
-    std::atomic<uint32_t> readMode_;
+    std::atomic<AudioParams::ReadMode> readMode_;
 };
 
 } // namespace orbit::embedded
