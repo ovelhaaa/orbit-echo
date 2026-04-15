@@ -27,8 +27,10 @@ struct AppContext {
     UiTft ui;
 
     AudioSourceType sourceType = AudioSourceType::ExternalI2s;
+    AudioSourceType activeSourceType = AudioSourceType::ExternalI2s;
     I2sInputSource externalI2sSource;
     InternalTestSilenceSource internalTestSource;
+    void* activeSource = &externalI2sSource;
 
     float* delayBufferL = nullptr;
     float* delayBufferR = nullptr;
@@ -65,17 +67,8 @@ void applyParams(dsp::OrbitDelayCore& core, const AudioParams& p) {
     core.setDcBlockEnabled(p.dcBlockEnabled);
 }
 
-void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInterleaved, size_t frames) {
-    auto* app = static_cast<AppContext*>(userData);
-
-    AudioParams params;
-    if (app->params.consumeIfUpdated(params)) {
-        applyParams(app->core, params);
-    }
-
-    AudioSource& source = selectAudioSource(app->sourceType, app->externalI2sSource, app->internalTestSource);
-    source.prepare(inInterleaved, frames);
-
+template <typename TSource>
+void processWithSource(AppContext* app, TSource& source, int32_t* outInterleaved, size_t frames) {
     for (size_t i = 0; i < frames; ++i) {
         float inL = 0.0f;
         float inR = 0.0f;
@@ -89,6 +82,50 @@ void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInt
         const float clampedR = std::clamp(outR, -1.0f, 1.0f);
         outInterleaved[i * 2] = static_cast<int32_t>(clampedL * 2147483647.0f);
         outInterleaved[i * 2 + 1] = static_cast<int32_t>(clampedR * 2147483647.0f);
+    }
+}
+
+void updateActiveSource(AppContext* app) {
+    if (app->activeSourceType == app->sourceType) {
+        return;
+    }
+
+    app->activeSourceType = app->sourceType;
+    switch (app->sourceType) {
+        case AudioSourceType::InternalTest:
+            app->activeSource = &app->internalTestSource;
+            break;
+        case AudioSourceType::ExternalI2s:
+        default:
+            app->activeSource = &app->externalI2sSource;
+            break;
+    }
+}
+
+void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInterleaved, size_t frames) {
+    auto* app = static_cast<AppContext*>(userData);
+
+    AudioParams params;
+    if (app->params.consumeIfUpdated(params)) {
+        applyParams(app->core, params);
+    }
+
+    updateActiveSource(app);
+
+    switch (app->activeSourceType) {
+        case AudioSourceType::InternalTest: {
+            auto* source = static_cast<InternalTestSilenceSource*>(app->activeSource);
+            source->prepare(inInterleaved);
+            processWithSource(app, *source, outInterleaved, frames);
+            break;
+        }
+        case AudioSourceType::ExternalI2s:
+        default: {
+            auto* source = static_cast<I2sInputSource*>(app->activeSource);
+            source->prepare(inInterleaved);
+            processWithSource(app, *source, outInterleaved, frames);
+            break;
+        }
     }
 }
 

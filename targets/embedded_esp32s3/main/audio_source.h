@@ -10,30 +10,19 @@ enum class AudioSourceType : uint8_t {
     InternalTest = 1,
 };
 
-class AudioSource {
+class I2sInputSource {
 public:
-    virtual ~AudioSource() = default;
-
-    virtual void prepare(const int32_t* inInterleaved, size_t frames) = 0;
-    virtual void renderFrame(size_t frameIndex, float& outL, float& outR) = 0;
-};
-
-class I2sInputSource final : public AudioSource {
-public:
-    void prepare(const int32_t* inInterleaved, size_t frames) override;
-    void renderFrame(size_t frameIndex, float& outL, float& outR) override;
+    void prepare(const int32_t* inInterleaved);
+    void renderFrame(size_t frameIndex, float& outL, float& outR) const;
 
 private:
     const int32_t* input_ = nullptr;
-    size_t frames_ = 0;
 };
 
-class InternalTestSilenceSource final : public AudioSource {
+class InternalTestSilenceSource {
 public:
-    void prepare(const int32_t* inInterleaved, size_t frames) override;
-    void renderFrame(size_t frameIndex, float& outL, float& outR) override;
+    void prepare(const int32_t* inInterleaved);
+    void renderFrame(size_t frameIndex, float& outL, float& outR) const;
 };
-
-AudioSource& selectAudioSource(AudioSourceType type, I2sInputSource& externalI2s, InternalTestSilenceSource& internalTest);
 
 } // namespace orbit::embedded
