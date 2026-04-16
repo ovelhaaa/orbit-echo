@@ -138,8 +138,7 @@ const bypassState = {
 const previewGraph = {
   audioCtx: null,
   dryElement: null,
-  wetElement: null,
-  dryGain: null,
+    dryGain: null,
   wetGain: null
 };
 
@@ -214,29 +213,104 @@ function updateBypassUi() {
   updateTransportStateLabel();
 }
 
+
+const realtimeState = {
+  isOfflineProcessing: false,
+  ptrInL: 0,
+  ptrInR: 0,
+  ptrOutL: 0,
+  ptrOutR: 0,
+  inBlockL: null,
+  inBlockR: null
+};
+
 async function ensurePreviewGraph() {
   if (previewGraph.audioCtx) return;
-  const audioCtx = new AudioContext();
+  const audioCtx = new AudioContext({ sampleRate: DEFAULT_UI_SAMPLE_RATE });
+  uiSampleRate = audioCtx.sampleRate;
+
   const drySource = audioCtx.createMediaElementSource(els.preview);
-  const wetElement = new Audio();
-  wetElement.style.display = 'none';
-  document.body.appendChild(wetElement);
-  wetElement.preload = 'auto';
-  wetElement.crossOrigin = 'anonymous';
-  const wetSource = audioCtx.createMediaElementSource(wetElement);
   const dryGain = audioCtx.createGain();
   const wetGain = audioCtx.createGain();
+
   dryGain.gain.value = 0;
   wetGain.gain.value = 1;
+
+  const scriptNode = audioCtx.createScriptProcessor(BLOCK_SIZE, 2, 2);
+
+  const bytes = BLOCK_SIZE * 4; // Float32Array.BYTES_PER_ELEMENT
+  realtimeState.ptrInL = module._malloc(bytes);
+  realtimeState.ptrInR = module._malloc(bytes);
+  realtimeState.ptrOutL = module._malloc(bytes);
+  realtimeState.ptrOutR = module._malloc(bytes);
+  realtimeState.inBlockL = new Float32Array(BLOCK_SIZE);
+  realtimeState.inBlockR = new Float32Array(BLOCK_SIZE);
+
+  if (api) {
+    api.reset(uiSampleRate);
+    applyParams();
+  }
+
+  scriptNode.onaudioprocess = (e) => {
+    const inputBuffer = e.inputBuffer;
+    const outputBuffer = e.outputBuffer;
+
+    if (realtimeState.isOfflineProcessing || !api) {
+      for (let channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
+        const inputData = inputBuffer.getChannelData(channel);
+        const outputData = outputBuffer.getChannelData(channel);
+        outputData.set(inputData);
+      }
+      return;
+    }
+
+    const numSamples = inputBuffer.length;
+    // ensure size
+    if (numSamples !== BLOCK_SIZE) {
+       console.warn("ScriptProcessorNode delivered an unexpected buffer size: " + numSamples);
+       // we only process BLOCK_SIZE due to static allocation, we truncate or bypass for this simple real time implementation
+       if (numSamples > BLOCK_SIZE) {
+           console.error("Buffer size too big, bypassing");
+            for (let channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
+                outputBuffer.getChannelData(channel).set(inputBuffer.getChannelData(channel));
+            }
+            return;
+       }
+    }
+
+    const processLen = Math.min(numSamples, BLOCK_SIZE);
+
+    const inL = inputBuffer.getChannelData(0);
+    const inR = inputBuffer.numberOfChannels > 1 ? inputBuffer.getChannelData(1) : inL;
+    const outL = outputBuffer.getChannelData(0);
+    const outR = outputBuffer.numberOfChannels > 1 ? outputBuffer.getChannelData(1) : outL;
+
+    realtimeState.inBlockL.fill(0);
+    realtimeState.inBlockR.fill(0);
+    realtimeState.inBlockL.set(inL.subarray(0, processLen));
+    realtimeState.inBlockR.set(inR.subarray(0, processLen));
+
+    module.HEAPF32.set(realtimeState.inBlockL, realtimeState.ptrInL >> 2);
+    module.HEAPF32.set(realtimeState.inBlockR, realtimeState.ptrInR >> 2);
+
+    api.process(realtimeState.ptrInL, realtimeState.ptrInR, realtimeState.ptrOutL, realtimeState.ptrOutR, processLen);
+
+    outL.set(module.HEAPF32.subarray(realtimeState.ptrOutL >> 2, (realtimeState.ptrOutL >> 2) + processLen));
+    if (outputBuffer.numberOfChannels > 1) {
+      outR.set(module.HEAPF32.subarray(realtimeState.ptrOutR >> 2, (realtimeState.ptrOutR >> 2) + processLen));
+    }  };
+
   drySource.connect(dryGain).connect(audioCtx.destination);
-  wetSource.connect(wetGain).connect(audioCtx.destination);
+  drySource.connect(scriptNode).connect(wetGain).connect(audioCtx.destination);
 
   previewGraph.audioCtx = audioCtx;
   previewGraph.dryElement = els.preview;
-  previewGraph.wetElement = wetElement;
+
   previewGraph.dryGain = dryGain;
   previewGraph.wetGain = wetGain;
+  previewGraph.scriptNode = scriptNode;
 }
+
 
 function applyBypassCrossfade() {
   if (!previewGraph.audioCtx || !previewGraph.dryGain || !previewGraph.wetGain) return;
@@ -251,16 +325,9 @@ function applyBypassCrossfade() {
   previewGraph.wetGain.gain.linearRampToValueAtTime(wetTarget, now + BYPASS_XFADE_SECONDS);
 }
 
-function syncWetPreviewTime() {
-  if (!previewGraph.wetElement || !els.preview.src) return;
-  const dryTime = Number.isFinite(els.preview.currentTime) ? els.preview.currentTime : 0;
-  if (previewGraph.wetElement.readyState >= 1 && Math.abs((previewGraph.wetElement.currentTime || 0) - dryTime) > 0.02) {
-    previewGraph.wetElement.currentTime = dryTime;
-  }
-}
 
 async function toggleBypassMode() {
-  if (!els.preview.src || !previewGraph.wetElement?.src) return;
+  if (!els.preview.src) return;
   await ensurePreviewGraph();
   if (previewGraph.audioCtx?.state === 'suspended') {
     await previewGraph.audioCtx.resume();
@@ -328,11 +395,11 @@ function initTransport() {
       await previewGraph.audioCtx.resume();
     }
     if (els.preview.paused) {
-      syncWetPreviewTime();
-      previewGraph.wetElement?.play().catch(() => {});
+
+
       await els.preview.play();
     } else {
-      previewGraph.wetElement?.pause();
+
       els.preview.pause();
     }
     updatePlayPauseUi();
@@ -349,19 +416,19 @@ function initTransport() {
   });
 
   els.preview.addEventListener('play', () => {
-    syncWetPreviewTime();
-    previewGraph.wetElement?.play().catch(() => {});
+
+
     updatePlayPauseUi();
     if (repeatState.mode === 'on') {
       monitorRepeatLoop();
     }
   });
   els.preview.addEventListener('pause', () => {
-    previewGraph.wetElement?.pause();
+
     updatePlayPauseUi();
   });
   els.preview.addEventListener('seeked', () => {
-    syncWetPreviewTime();
+
     if (repeatState.mode === 'on' && repeatState.loopEnd > 0 && els.preview.currentTime >= repeatState.loopEnd) {
       els.preview.currentTime = repeatState.loopStart;
     }
@@ -370,7 +437,7 @@ function initTransport() {
   els.preview.addEventListener('loadedmetadata', () => {
     refreshLoopPoints();
     els.playPauseBtn.disabled = false;
-    if (els.bypassBtn) els.bypassBtn.disabled = !previewGraph.wetElement?.src;
+    if (els.bypassBtn) els.bypassBtn.disabled = false;
     els.repeatBtn.disabled = false;
     repeatState.projectKey = getProjectRepeatKey();
     repeatState.mode = readStoredRepeatMode();
@@ -378,8 +445,8 @@ function initTransport() {
   });
   els.preview.addEventListener('timeupdate', updateTransportStateLabel);
   els.preview.addEventListener('ended', () => {
-    previewGraph.wetElement?.pause();
-    syncWetPreviewTime();
+
+
     if (repeatState.mode === 'on' && repeatState.loopEnd > 0) {
       els.preview.currentTime = repeatState.loopStart;
       els.preview.play().catch(() => {});
@@ -853,47 +920,6 @@ function applyParams() {
   Object.keys(paramConverters).forEach(setParam);
 }
 
-function processStereoBuffer(left, right) {
-  const outL = new Float32Array(left.length);
-  const outR = new Float32Array(right.length);
-
-  const bytes = BLOCK_SIZE * Float32Array.BYTES_PER_ELEMENT;
-  const ptrInL = module._malloc(bytes);
-  const ptrInR = module._malloc(bytes);
-  const ptrOutL = module._malloc(bytes);
-  const ptrOutR = module._malloc(bytes);
-
-  const inBlockL = new Float32Array(BLOCK_SIZE);
-  const inBlockR = new Float32Array(BLOCK_SIZE);
-
-  try {
-    api.reset(uiSampleRate);
-    applyParams();
-
-    for (let pos = 0; pos < left.length; pos += BLOCK_SIZE) {
-      const len = Math.min(BLOCK_SIZE, left.length - pos);
-      inBlockL.fill(0);
-      inBlockR.fill(0);
-      inBlockL.set(left.subarray(pos, pos + len));
-      inBlockR.set(right.subarray(pos, pos + len));
-
-      module.HEAPF32.set(inBlockL, ptrInL >> 2);
-      module.HEAPF32.set(inBlockR, ptrInR >> 2);
-
-      api.process(ptrInL, ptrInR, ptrOutL, ptrOutR, BLOCK_SIZE);
-
-      outL.set(module.HEAPF32.subarray(ptrOutL >> 2, (ptrOutL >> 2) + len), pos);
-      outR.set(module.HEAPF32.subarray(ptrOutR >> 2, (ptrOutR >> 2) + len), pos);
-    }
-  } finally {
-    module._free(ptrInL);
-    module._free(ptrInR);
-    module._free(ptrOutL);
-    module._free(ptrOutR);
-  }
-
-  return { outL, outR };
-}
 
 function bindRealtimeParamUpdates() {
   const pendingKeys = new Set();
@@ -933,16 +959,59 @@ els.processBtn.addEventListener('click', async () => {
   els.downloadLink.hidden = true;
   els.status.textContent = 'Decodificando áudio...';
 
+  if (typeof realtimeState !== 'undefined') {
+    realtimeState.isOfflineProcessing = true;
+  }
+
   try {
     const { sampleRate, left, right } = await decodeToStereoFloat(file);
-    uiSampleRate = sampleRate;
+    const offlineUiSampleRate = sampleRate;
     if (api) {
-      api.reset(uiSampleRate);
+      api.reset(offlineUiSampleRate);
       applyParams();
     }
 
     els.status.textContent = 'Processando com Orbit Echo...';
-    const { outL, outR } = processStereoBuffer(left, right);
+
+    // We run offline processing exactly like it was
+    const outL = new Float32Array(left.length);
+    const outR = new Float32Array(right.length);
+
+    const bytes = BLOCK_SIZE * 4;
+    const ptrInL = module._malloc(bytes);
+    const ptrInR = module._malloc(bytes);
+    const ptrOutL = module._malloc(bytes);
+    const ptrOutR = module._malloc(bytes);
+
+    const inBlockL = new Float32Array(BLOCK_SIZE);
+    const inBlockR = new Float32Array(BLOCK_SIZE);
+
+    for (let pos = 0; pos < left.length; pos += BLOCK_SIZE) {
+      const len = Math.min(BLOCK_SIZE, left.length - pos);
+      inBlockL.fill(0);
+      inBlockR.fill(0);
+      inBlockL.set(left.subarray(pos, pos + len));
+      inBlockR.set(right.subarray(pos, pos + len));
+
+      module.HEAPF32.set(inBlockL, ptrInL >> 2);
+      module.HEAPF32.set(inBlockR, ptrInR >> 2);
+
+      api.process(ptrInL, ptrInR, ptrOutL, ptrOutR, BLOCK_SIZE);
+
+      outL.set(module.HEAPF32.subarray(ptrOutL >> 2, (ptrOutL >> 2) + len), pos);
+      outR.set(module.HEAPF32.subarray(ptrOutR >> 2, (ptrOutR >> 2) + len), pos);
+    }
+
+    module._free(ptrInL);
+    module._free(ptrInR);
+    module._free(ptrOutL);
+    module._free(ptrOutR);
+
+    // Re-sync realtime
+    if (api && previewGraph.audioCtx) {
+      api.reset(previewGraph.audioCtx.sampleRate);
+      applyParams();
+    }
 
     const dryWavBlob = encodeWavFromFloatStereo(left, right, sampleRate);
     const wavBlob = encodeWavFromFloatStereo(outL, outR, sampleRate);
@@ -955,9 +1024,8 @@ els.processBtn.addEventListener('click', async () => {
 
     await ensurePreviewGraph();
     els.preview.src = dryUrl;
-    if (previewGraph.wetElement) previewGraph.wetElement.src = wetUrl;
     els.preview.currentTime = 0;
-    if (previewGraph.wetElement) previewGraph.wetElement.currentTime = 0;
+
     applyBypassCrossfade();
     if (els.bypassBtn) els.bypassBtn.disabled = false;
     updateBypassUi();
@@ -966,10 +1034,13 @@ els.processBtn.addEventListener('click', async () => {
     els.downloadLink.hidden = false;
     refreshLoopPoints();
     els.downloadLink.textContent = 'Baixar WAV processado';
-    els.status.textContent = 'Concluído! Ouça no player ou baixe o arquivo.';
+    els.status.textContent = 'Concluído! Ouça no player em tempo real ou baixe o arquivo processado.';
   } catch (err) {
     els.status.textContent = `Erro: ${err instanceof Error ? err.message : String(err)}`;
   } finally {
+    if (typeof realtimeState !== 'undefined') {
+      realtimeState.isOfflineProcessing = false;
+    }
     els.processBtn.disabled = false;
   }
 });
