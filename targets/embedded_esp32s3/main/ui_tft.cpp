@@ -175,6 +175,7 @@ void UiTft::updateState() {
                     currentParams_.feedback = std::clamp(currentParams_.feedback + (encoderPos_ * 0.05f), 0.0f, 1.0f);
                     break;
                 case Page::Time:
+                    // 24000.0f is kMaxDelaySamples. It would be better to share it, but for now we clamp against it.
                     currentParams_.offsetSamples = std::clamp(currentParams_.offsetSamples + (encoderPos_ * 1000.0f), 0.0f, 24000.0f);
                     break;
                 case Page::Tone:
@@ -207,10 +208,11 @@ void UiTft::taskLoop() {
     // Sincroniza parâmetros iniciais
     if (config_.paramBridge) {
        // Se o paramBridge tivesse método getter, a gente puxava.
-       // Vamos inicializar com alguns valores padrão conhecidos.
+       // Vamos inicializar com alguns valores padrão conhecidos,
+       // alinhados com o estado default da struct AudioParams
        currentParams_.mix = 0.35f;
        currentParams_.feedback = 0.35f;
-       currentParams_.offsetSamples = 12000.0f;
+       currentParams_.offsetSamples = 1200.0f;
        currentParams_.toneHz = 8000.0f;
     }
 
