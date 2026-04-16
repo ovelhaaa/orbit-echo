@@ -107,7 +107,8 @@ public:
 
     void fillRect(int x, int y, int w, int h, uint16_t color) {
         if (!framebuffer_) return;
-        uint16_t color_swap = (color >> 8) | (color << 8); // Swap bytes for SPI
+        uint8_t high_byte = (uint8_t)(color >> 8);
+        uint8_t low_byte = (uint8_t)(color & 0xFF);
 
         for (int i = 0; i < h; i++) {
             int drawY = y + i;
@@ -117,8 +118,8 @@ public:
                 if (drawX < 0 || drawX >= kWidth) continue;
 
                 int index = (drawY * kWidth + drawX) * 2;
-                framebuffer_[index] = (uint8_t)(color_swap >> 8);
-                framebuffer_[index + 1] = (uint8_t)(color_swap & 0xFF);
+                framebuffer_[index] = high_byte;
+                framebuffer_[index + 1] = low_byte;
             }
         }
     }
@@ -144,10 +145,11 @@ public:
 private:
     void drawSimplePixel(int x, int y, uint16_t color) {
         if (!framebuffer_ || x < 0 || x >= kWidth || y < 0 || y >= kHeight) return;
-        uint16_t color_swap = (color >> 8) | (color << 8);
+        uint8_t high_byte = (uint8_t)(color >> 8);
+        uint8_t low_byte = (uint8_t)(color & 0xFF);
         int index = (y * kWidth + x) * 2;
-        framebuffer_[index] = (uint8_t)(color_swap >> 8);
-        framebuffer_[index + 1] = (uint8_t)(color_swap & 0xFF);
+        framebuffer_[index] = high_byte;
+        framebuffer_[index + 1] = low_byte;
     }
 
     // Very basic hardcoded font for UI POC
