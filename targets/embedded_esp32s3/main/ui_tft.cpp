@@ -13,7 +13,7 @@ UiTft::~UiTft() {
     stop();
 }
 
-bool UiTft::start(const Config& config, UiTickCallback callback, void* userData) {
+bool UiTft::start(const Config& config, UiTickCallback callback, void* userData, uint8_t* framebuffer) {
     if (running_) {
         return true;
     }
@@ -21,6 +21,7 @@ bool UiTft::start(const Config& config, UiTickCallback callback, void* userData)
     config_ = config;
     callback_ = callback;
     userData_ = userData;
+    framebuffer_ = framebuffer;
 
     if (!stoppedSignal_) {
         stoppedSignal_ = xSemaphoreCreateBinary();
