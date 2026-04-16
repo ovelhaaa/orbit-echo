@@ -130,16 +130,10 @@ void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInt
 }
 
 void uiTick(void* userData) {
-    auto* app = static_cast<AppContext*>(userData);
-    static uint32_t tick = 0;
-    ++tick;
-
-    AudioParams p;
-    p.mix = 0.30f + 0.15f * ((tick / 120) % 2);
-    p.feedback = 0.40f;
-    p.toneHz = 6500.0f;
-    p.smearAmount = 0.20f;
-    app->params.publish(p);
+    // Opcional: A UI task já trata seus inputs e manda os parâmetros pro bridge.
+    // O uiTick agora poderia ser usado apenas para side-effects ou heartbeats,
+    // mas o loop principal da UI task gerencia o estado através de UiTft::updateState().
+    // Removendo a lógica dummy que alterava os parâmetros.
 }
 
 } // namespace
@@ -190,6 +184,7 @@ extern "C" void app_main(void) {
     uiCfg.refreshPeriodMs = board::ui::kRefreshPeriodMs;
     uiCfg.core = board::ui::kTaskCore;
     uiCfg.priority = board::ui::kTaskPriority;
+    uiCfg.paramBridge = &app.params;
 
     if (!app.ui.start(uiCfg, uiTick, &app)) {
         ESP_LOGW(kTag, "UI não iniciou; áudio segue ativo");
