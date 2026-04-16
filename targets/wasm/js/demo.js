@@ -305,7 +305,7 @@ async function ensurePreviewGraph() {
 
   previewGraph.audioCtx = audioCtx;
   previewGraph.dryElement = els.preview;
-  null = null; // Removed
+
   previewGraph.dryGain = dryGain;
   previewGraph.wetGain = wetGain;
   previewGraph.scriptNode = scriptNode;
@@ -437,7 +437,7 @@ function initTransport() {
   els.preview.addEventListener('loadedmetadata', () => {
     refreshLoopPoints();
     els.playPauseBtn.disabled = false;
-    if (els.bypassBtn) els.bypassBtn.disabled = !false;
+    if (els.bypassBtn) els.bypassBtn.disabled = false;
     els.repeatBtn.disabled = false;
     repeatState.projectKey = getProjectRepeatKey();
     repeatState.mode = readStoredRepeatMode();
