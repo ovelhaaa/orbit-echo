@@ -222,9 +222,9 @@ private:
 // Colors (RGB565)
 constexpr uint16_t COLOR_BLACK = 0x0000;
 constexpr uint16_t COLOR_WHITE = 0xFFFF;
-constexpr uint16_t COLOR_ORBIT_BLUE = 0x041F; // Nice deep blue
-constexpr uint16_t COLOR_ACCENT = 0xF800; // Red
-constexpr uint16_t COLOR_GREEN = 0x07E0;
-constexpr uint16_t COLOR_GRAY = 0x7BEF;
+constexpr uint16_t COLOR_RED = 0xF800; // Pure Red
+constexpr uint16_t COLOR_DARK_GRAY = 0x3186; // ~ #333333
+constexpr uint16_t COLOR_BORDER = 0x8410; // ~ #888888
+constexpr uint16_t COLOR_TEXT = 0xEF7D; // ~ #EEEEEE
 
 } // namespace orbit::embedded::hw
