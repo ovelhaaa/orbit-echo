@@ -22,8 +22,10 @@ public:
     UiTft() = default;
     ~UiTft();
 
-    bool start(const Config& config, UiTickCallback callback, void* userData);
+    bool start(const Config& config, UiTickCallback callback, void* userData, uint8_t* framebuffer);
     void stop();
+
+    uint8_t* getFramebuffer() const { return framebuffer_; }
 
 private:
     static void taskEntry(void* ctx);
@@ -32,6 +34,7 @@ private:
     Config config_{};
     UiTickCallback callback_ = nullptr;
     void* userData_ = nullptr;
+    uint8_t* framebuffer_ = nullptr;
     TaskHandle_t taskHandle_ = nullptr;
     SemaphoreHandle_t stoppedSignal_ = nullptr;
     bool running_ = false;
