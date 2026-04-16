@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 135" width="480" height="270">
+  <defs>
+    <style>
+      .bg { fill: #000000; }
+      .header-bg { fill: #0088FF; } /* Orbit Blue approx */
+      .header-text { fill: #FFFFFF; font-family: monospace; font-size: 10px; font-weight: bold; }
+      .on-bg { fill: #00FF00; }
+      .on-text { fill: #000000; font-family: monospace; font-size: 8px; font-weight: bold; }
+      .list-text { fill: #FFFFFF; font-family: monospace; font-size: 10px; }
+      .list-text-selected { fill: #000000; font-family: monospace; font-size: 10px; }
+      .sel-scroll { fill: #7B7B7B; } /* Gray approx */
+      .bar-bg { fill: #000000; }
+      .bar-fg { fill: #0088FF; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="240" height="135" class="bg" />
+
+  <!-- Header -->
+  <rect width="240" height="16" class="header-bg" />
+  <text x="4" y="12" class="header-text">Orbit Echo</text>
+
+  <!-- ON Indicator -->
+  <rect x="210" y="2" width="26" height="12" class="on-bg" />
+  <text x="214" y="11" class="on-text">ON</text>
+
+  <!-- List Items -->
+  <g>
+    <!-- Item 0 (Mix) - Selected (Scroll Mode) -->
+    <rect x="2" y="22" width="236" height="18" class="sel-scroll" />
+    <text x="6" y="34" class="list-text-selected">Mix</text>
+    <text x="80" y="34" class="list-text-selected">35 %</text>
+    <rect x="150" y="25" width="80" height="6" class="bar-bg" />
+    <rect x="151" y="26" width="27" height="4" class="bar-fg" />
+
+    <!-- Item 1 (Fback) -->
+    <text x="6" y="54" class="list-text">Fback</text>
+    <text x="80" y="54" class="list-text">35 %</text>
+    <rect x="150" y="45" width="80" height="6" class="bar-bg" />
+    <rect x="151" y="46" width="27" height="4" class="bar-fg" />
+
+    <!-- Item 2 (Tone) -->
+    <text x="6" y="74" class="list-text">Tone</text>
+    <text x="80" y="74" class="list-text">8000 Hz</text>
+    <rect x="150" y="65" width="80" height="6" class="bar-bg" />
+    <rect x="151" y="66" width="60" height="4" class="bar-fg" />
+
+    <!-- Item 3 (Smear) -->
+    <text x="6" y="94" class="list-text">Smear</text>
+    <text x="80" y="94" class="list-text">0.00</text>
+    <rect x="150" y="85" width="80" height="6" class="bar-bg" />
+
+    <!-- Item 4 (Orbit) -->
+    <text x="6" y="114" class="list-text">Orbit</text>
+    <text x="80" y="114" class="list-text">0.50</text>
+    <rect x="150" y="105" width="80" height="6" class="bar-bg" />
+    <rect x="151" y="106" width="39" height="4" class="bar-fg" />
+  </g>
+</svg>
