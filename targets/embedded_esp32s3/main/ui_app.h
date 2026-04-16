@@ -125,16 +125,28 @@ private:
         display_.clear(hw::COLOR_BLACK);
 
         // Header
-        int header_h = 20;
+    int header_h = 20;
+    int led_x = 10;       // Centro do LED
+    int led_y = 10;
+    int text_x = 24;      // Texto travado no eixo X para evitar o "pulo"
+    int text_y = 6;       // Altura do texto
 
-        // System Active indicator (Red dot + text)
-        if (bypassed_) {
-            display_.drawText(8, 6, "SYSTEM BYPASSED", hw::COLOR_TEXT);
-        } else {
-            display_.fillRect(6, 6, 8, 8, hw::COLOR_RED); // Simulated red dot
-            display_.drawText(20, 6, "SYSTEM ACTIVE", hw::COLOR_RED);
-        }
+    // System Active indicator (Red dot + text)
+    if (bypassed_) {
+        // LED "Apagado" - Dá um visual mais físico/industrial para a interface
+        display_.fillSmoothCircle(led_x, led_y, 6, hw::COLOR_DARK_GRAY, hw::COLOR_BLACK);
+        display_.drawText(text_x, text_y, "SYSTEM BYPASSED", hw::COLOR_TEXT);
+    } else {
+        // LED "Aceso"
+        display_.fillSmoothCircle(led_x, led_y, 6, hw::COLOR_RED, hw::COLOR_BLACK); 
+        display_.drawText(text_x, text_y, "SYSTEM ACTIVE", hw::COLOR_RED);
+    }
 
+    // Top right text
+    display_.drawText(hw::Display::kWidth - 66, text_y, "ORBIT ECHO", hw::COLOR_TEXT);
+
+    // Top horizontal line
+    display_.fillRect(0, header_h, hw::Display::kWidth, 1, hw::COLOR_DARK_GRAY);
         // Top right text
         display_.drawText(hw::Display::kWidth - 66, 6, "ORBIT ECHO", hw::COLOR_TEXT);
 
