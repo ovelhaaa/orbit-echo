@@ -1,6 +1,6 @@
 import createOrbitModule from './orbit_delay_wasm.js';
 
-const BLOCK_SIZE = 128;
+const BLOCK_SIZE = 256;
 const MAX_DELAY_SAMPLES = 48000 * 2;
 const DEFAULT_UI_SAMPLE_RATE = 48000;
 const TONE_MIN_HZ = 300;
