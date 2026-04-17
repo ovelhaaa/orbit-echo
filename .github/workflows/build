@@ -1,0 +1,37 @@
+name: ESP-IDF Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    name: Build Firmware
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+        with:
+          # Extremamente importante para projetos C/C++ e ESP-IDF
+          # Garante que dependências e componentes de terceiros sejam baixados.
+          submodules: 'recursive' 
+
+      - name: Build com ESP-IDF
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.2   # Especifique a versão que você usa localmente
+          target: esp32s3         # A arquitetura alvo (esp32, esp32s3, esp32c3, etc)
+          path: '/targets/embedded_esp32s3/'               # Pasta onde está o CMakeLists.txt principal
+
+      - name: Salvar Binários (Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ github.sha }}
+          path: |
+            build/bootloader/bootloader.bin
+            build/partition_table/partition-table.bin
+            build/*.bin
+          retention-days: 7
