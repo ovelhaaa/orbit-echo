@@ -3,6 +3,7 @@
 #include "board_config.h"
 #include "parameter_bridge.h"
 #include "ui_tft.h"
+#include "ui_app.h"
 
 #include "core/include/orbit_delay_core.h"
 
@@ -37,6 +38,8 @@ struct AppContext {
 
     // Não crítico: pode ficar em PSRAM (UI/assets/logs/cache).
     uint8_t* uiScratch = nullptr;
+
+    ui::UserInterface uiApp;
 };
 
 void applyParams(dsp::OrbitDelayCore& core, const AudioParams& p) {
@@ -131,15 +134,7 @@ void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInt
 
 void uiTick(void* userData) {
     auto* app = static_cast<AppContext*>(userData);
-    static uint32_t tick = 0;
-    ++tick;
-
-    AudioParams p;
-    p.mix = 0.30f + 0.15f * ((tick / 120) % 2);
-    p.feedback = 0.40f;
-    p.toneHz = 6500.0f;
-    p.smearAmount = 0.20f;
-    app->params.publish(p);
+    app->uiApp.tick(app->params);
 }
 
 } // namespace
@@ -191,8 +186,12 @@ extern "C" void app_main(void) {
     uiCfg.core = board::ui::kTaskCore;
     uiCfg.priority = board::ui::kTaskPriority;
 
-    if (!app.ui.start(uiCfg, uiTick, &app)) {
-        ESP_LOGW(kTag, "UI não iniciou; áudio segue ativo");
+    if (!app.uiApp.init(app.uiScratch)) {
+        ESP_LOGE(kTag, "Falha ao inicializar o hardware da UI");
+    }
+
+    if (!app.ui.start(uiCfg, uiTick, &app, app.uiScratch)) {
+        ESP_LOGW(kTag, "Task da UI não iniciou; áudio segue ativo");
     }
 
     ESP_LOGI(kTag, "Sistema iniciado: core DSP, áudio I2S+DMA e UI em tasks separadas");
