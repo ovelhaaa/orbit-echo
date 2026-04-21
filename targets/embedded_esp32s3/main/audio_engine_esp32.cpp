@@ -8,6 +8,10 @@
 namespace orbit::embedded {
 namespace {
 constexpr const char* kTag = "audio_engine";
+
+#ifndef I2S_MCLK_MULTIPLE_DEFAULT
+#define I2S_MCLK_MULTIPLE_DEFAULT I2S_MCLK_MULTIPLE_256
+#endif
 }
 
 AudioEngineEsp32::AudioEngineEsp32() = default;
@@ -57,9 +61,9 @@ bool AudioEngineEsp32::init(const Config& config, AudioCallback callback, void* 
     i2s_pin_config_t pinCfg = {
         .bck_io_num = config_.bclkGpio,
         .ws_io_num = config_.wsGpio,
+        .mck_io_num = I2S_PIN_NO_CHANGE,
         .data_out_num = config_.enableTx ? config_.doutGpio : I2S_PIN_NO_CHANGE,
         .data_in_num = config_.enableRx ? config_.dinGpio : I2S_PIN_NO_CHANGE,
-        .mck_io_num = I2S_PIN_NO_CHANGE,
     };
 
     if (i2s_set_pin(config_.port, &pinCfg) != ESP_OK) {

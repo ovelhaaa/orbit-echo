@@ -124,6 +124,17 @@ public:
         }
     }
 
+    void fillSmoothCircle(int cx, int cy, int r, uint16_t color, uint16_t /*bg*/) {
+        if (!framebuffer_ || r <= 0) return;
+        for (int dy = -r; dy <= r; ++dy) {
+            for (int dx = -r; dx <= r; ++dx) {
+                if ((dx * dx) + (dy * dy) <= (r * r)) {
+                    drawSimplePixel(cx + dx, cy + dy, color);
+                }
+            }
+        }
+    }
+
     // Extremely simple 5x7 font representation for 8 ASCII chars (just enough for POC)
     // In a real scenario we'd use a full font array. Here we just draw rectangles to approximate or implement a basic fallback
     void drawChar(int x, int y, char c, uint16_t color) {
