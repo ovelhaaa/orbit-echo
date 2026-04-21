@@ -13,6 +13,7 @@ enum class AudioSourceType : uint8_t {
 class I2sInputSource {
 public:
     void prepare(const int32_t* inInterleaved);
+    void reset();
     void renderFrame(size_t frameIndex, float& outL, float& outR);
 
 private:

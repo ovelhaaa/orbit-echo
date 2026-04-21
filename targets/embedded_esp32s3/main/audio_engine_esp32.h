@@ -32,7 +32,7 @@ public:
         bool useApll = true;
         int taskPriority = configMAX_PRIORITIES - 2;
         int taskCore = 0;
-        int taskStackWords = 4096;
+        int taskStackBytes = 4096;
     };
 
     struct Stats {
@@ -67,7 +67,9 @@ private:
     int32_t* txBuffer_ = nullptr;
     size_t channelsPerFrame_ = 2;
     size_t interleavedSamplesPerBlock_ = 0;
+    TickType_t ioTimeoutTicks_ = pdMS_TO_TICKS(8);
     Stats stats_{};
+    mutable portMUX_TYPE statsMux_ = portMUX_INITIALIZER_UNLOCKED;
 
     bool initialized_ = false;
     bool running_ = false;

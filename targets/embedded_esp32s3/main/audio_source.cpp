@@ -17,6 +17,13 @@ void I2sInputSource::prepare(const int32_t* inInterleaved) {
     input_ = inInterleaved;
 }
 
+void I2sInputSource::reset() {
+    x1L_ = 0.0f;
+    x1R_ = 0.0f;
+    y1L_ = 0.0f;
+    y1R_ = 0.0f;
+}
+
 void I2sInputSource::renderFrame(size_t frameIndex, float& outL, float& outR) {
     if (!input_) {
         outL = 0.0f;

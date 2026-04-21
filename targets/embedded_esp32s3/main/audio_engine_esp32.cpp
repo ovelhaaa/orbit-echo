@@ -38,7 +38,14 @@ bool AudioEngineEsp32::init(const Config& config, AudioCallback callback, void* 
     }
     callback_ = callback;
     userData_ = userData;
+    taskENTER_CRITICAL(&statsMux_);
     stats_ = {};
+    taskEXIT_CRITICAL(&statsMux_);
+
+    const uint32_t blockMs = static_cast<uint32_t>((1000ULL * config_.dmaBufferFrames) /
+                                                   static_cast<uint32_t>(config_.sampleRate > 0 ? config_.sampleRate : 1));
+    const uint32_t timeoutMs = (blockMs * 2U) + 2U;
+    ioTimeoutTicks_ = pdMS_TO_TICKS(timeoutMs < 4U ? 4U : (timeoutMs > 50U ? 50U : timeoutMs));
 
     i2s_mode_t mode = static_cast<i2s_mode_t>(I2S_MODE_MASTER);
     if (config_.enableTx) {
@@ -91,6 +98,7 @@ bool AudioEngineEsp32::init(const Config& config, AudioCallback callback, void* 
         i2s_driver_uninstall(config_.port);
         return false;
     }
+    i2s_zero_dma_buffer(config_.port);
 
     interleavedSamplesPerBlock_ = static_cast<size_t>(config_.dmaBufferFrames) * channelsPerFrame_;
     const size_t bytes = interleavedSamplesPerBlock_ * sizeof(int32_t);
@@ -98,9 +106,11 @@ bool AudioEngineEsp32::init(const Config& config, AudioCallback callback, void* 
     if (config_.enableRx) {
         rxBuffer_ = static_cast<int32_t*>(heap_caps_malloc(bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
     }
-    txBuffer_ = static_cast<int32_t*>(heap_caps_malloc(bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    if (config_.enableTx) {
+        txBuffer_ = static_cast<int32_t*>(heap_caps_malloc(bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    }
 
-    if (!txBuffer_ || (config_.enableRx && !rxBuffer_)) {
+    if ((config_.enableTx && !txBuffer_) || (config_.enableRx && !rxBuffer_)) {
         ESP_LOGE(kTag, "Falha ao alocar buffers críticos em SRAM interna");
         deinit();
         return false;
@@ -123,7 +133,7 @@ bool AudioEngineEsp32::start() {
     }
 
     running_ = true;
-    BaseType_t ok = xTaskCreatePinnedToCore(audioTaskEntry, "audio_i2s_task", config_.taskStackWords, this,
+    BaseType_t ok = xTaskCreatePinnedToCore(audioTaskEntry, "audio_i2s_task", config_.taskStackBytes, this,
                                             config_.taskPriority, &taskHandle_, config_.taskCore);
     if (ok != pdPASS) {
         running_ = false;
@@ -173,7 +183,10 @@ void AudioEngineEsp32::deinit() {
 }
 
 AudioEngineEsp32::Stats AudioEngineEsp32::stats() const {
-    return stats_;
+    taskENTER_CRITICAL(&statsMux_);
+    const Stats snapshot = stats_;
+    taskEXIT_CRITICAL(&statsMux_);
+    return snapshot;
 }
 
 void AudioEngineEsp32::audioTaskEntry(void* ctx) {
@@ -186,12 +199,16 @@ void AudioEngineEsp32::audioTaskLoop() {
         size_t bytesRead = 0;
         esp_err_t rxErr = ESP_OK;
         if (config_.enableRx) {
-            rxErr = i2s_read(config_.port, rxBuffer_, bytesPerBlock, &bytesRead, pdMS_TO_TICKS(20));
+            rxErr = i2s_read(config_.port, rxBuffer_, bytesPerBlock, &bytesRead, ioTimeoutTicks_);
             if (rxErr != ESP_OK) {
+                taskENTER_CRITICAL(&statsMux_);
                 ++stats_.rxErrors;
+                taskEXIT_CRITICAL(&statsMux_);
             }
             if (bytesRead != bytesPerBlock) {
+                taskENTER_CRITICAL(&statsMux_);
                 ++stats_.rxShortBlocks;
+                taskEXIT_CRITICAL(&statsMux_);
             }
             // Política de bloco fixo: callback só roda com bloco completo.
             if (rxErr != ESP_OK || bytesRead != bytesPerBlock) {
@@ -199,11 +216,15 @@ void AudioEngineEsp32::audioTaskLoop() {
                     std::memset(txBuffer_, 0, bytesPerBlock);
                     size_t bytesWritten = 0;
                     const esp_err_t txErr =
-                        i2s_write(config_.port, txBuffer_, bytesPerBlock, &bytesWritten, pdMS_TO_TICKS(20));
+                        i2s_write(config_.port, txBuffer_, bytesPerBlock, &bytesWritten, ioTimeoutTicks_);
                     if (txErr != ESP_OK) {
+                        taskENTER_CRITICAL(&statsMux_);
                         ++stats_.txErrors;
+                        taskEXIT_CRITICAL(&statsMux_);
                     } else if (bytesWritten != bytesPerBlock) {
+                        taskENTER_CRITICAL(&statsMux_);
                         ++stats_.txShortWrites;
+                        taskEXIT_CRITICAL(&statsMux_);
                     }
                 }
                 continue;
@@ -218,7 +239,9 @@ void AudioEngineEsp32::audioTaskLoop() {
             std::memset(txBuffer_, 0, bytesPerBlock);
         }
         if (callback_ && frames == static_cast<size_t>(config_.dmaBufferFrames)) {
+            taskENTER_CRITICAL(&statsMux_);
             ++stats_.callbackCalls;
+            taskEXIT_CRITICAL(&statsMux_);
             callback_(userData_, config_.enableRx ? rxBuffer_ : nullptr, txBuffer_, frames);
         }
 
@@ -226,11 +249,15 @@ void AudioEngineEsp32::audioTaskLoop() {
             size_t bytesWritten = 0;
             const size_t txBytes = frames * channelsPerFrame_ * sizeof(int32_t);
             const esp_err_t txErr =
-                i2s_write(config_.port, txBuffer_, txBytes, &bytesWritten, pdMS_TO_TICKS(20));
+                i2s_write(config_.port, txBuffer_, txBytes, &bytesWritten, ioTimeoutTicks_);
             if (txErr != ESP_OK) {
+                taskENTER_CRITICAL(&statsMux_);
                 ++stats_.txErrors;
+                taskEXIT_CRITICAL(&statsMux_);
             } else if (bytesWritten != txBytes) {
+                taskENTER_CRITICAL(&statsMux_);
                 ++stats_.txShortWrites;
+                taskEXIT_CRITICAL(&statsMux_);
             }
         }
     }

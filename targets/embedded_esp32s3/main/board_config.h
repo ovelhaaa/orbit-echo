@@ -16,7 +16,7 @@ namespace i2s {
 constexpr int kMclkGpio = 10;
 constexpr int kBclkGpio = 11;
 constexpr int kLrckGpio = 12;
-constexpr int kDoutGpio = 6;
+constexpr int kDoutGpio = 6; // TX mantido no pino legado; RX/MCLK usam pinagem validada do PCM1808.
 constexpr int kDinGpio = 13; // DOUT do PCM1808 (entrada RX no ESP32-S3)
 } // namespace i2s
 } // namespace audio
@@ -37,9 +37,9 @@ constexpr int kBacklightGpio = 40;
 } // namespace tft
 
 namespace encoder {
-constexpr int kA = 11;
-constexpr int kB = 12;
-constexpr int kSwitch = 13;
+constexpr int kA = 4;
+constexpr int kB = 5;
+constexpr int kSwitch = 7;
 } // namespace encoder
 
 namespace controls {
