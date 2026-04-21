@@ -13,10 +13,14 @@ enum class AudioSourceType : uint8_t {
 class I2sInputSource {
 public:
     void prepare(const int32_t* inInterleaved);
-    void renderFrame(size_t frameIndex, float& outL, float& outR) const;
+    void renderFrame(size_t frameIndex, float& outL, float& outR);
 
 private:
     const int32_t* input_ = nullptr;
+    float x1L_ = 0.0f;
+    float x1R_ = 0.0f;
+    float y1L_ = 0.0f;
+    float y1R_ = 0.0f;
 };
 
 class InternalTestTriangleSource {

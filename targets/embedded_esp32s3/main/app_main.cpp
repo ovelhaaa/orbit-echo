@@ -175,6 +175,9 @@ extern "C" void app_main(void) {
     audioCfg.sampleRate = board::audio::kSampleRate;
     audioCfg.enableRx = true;
     audioCfg.enableTx = true;
+    audioCfg.mclkGpio = board::audio::i2s::kMclkGpio;
+    audioCfg.fixedMclkHz = board::audio::kSampleRate * 256;
+    audioCfg.useApll = true;
 
     if (!app.audio.init(audioCfg, audioCallback, &app) || !app.audio.start()) {
         ESP_LOGE(kTag, "Falha ao iniciar engine de áudio");
