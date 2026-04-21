@@ -24,14 +24,14 @@ jobs:
         with:
           esp_idf_version: v5.2   # Especifique a versão que você usa localmente
           target: esp32s3         # A arquitetura alvo (esp32, esp32s3, esp32c3, etc)
-          path: '/targets/embedded_esp32s3/'               # Pasta onde está o CMakeLists.txt principal
+          path: 'targets/embedded_esp32s3'      # Diretório raiz do app ESP-IDF
 
       - name: Salvar Binários (Artifacts)
         uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ github.sha }}
           path: |
-            build/bootloader/bootloader.bin
-            build/partition_table/partition-table.bin
-            build/*.bin
+            targets/embedded_esp32s3/build/bootloader/bootloader.bin
+            targets/embedded_esp32s3/build/partition_table/partition-table.bin
+            targets/embedded_esp32s3/build/*.bin
           retention-days: 7

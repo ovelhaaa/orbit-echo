@@ -1,19 +1,14 @@
 cmake_minimum_required(VERSION 3.16)
 
-if(NOT DEFINED ENV{IDF_PATH})
-  message(STATUS "ESP-IDF não detectado (IDF_PATH ausente). Pulando target embedded_esp32s3.")
-  return()
-endif()
+# This directory is an ESP-IDF application root when configured directly via:
+#   cd targets/embedded_esp32s3 && idf.py build
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  if(NOT DEFINED ENV{IDF_PATH})
+    message(FATAL_ERROR "ESP-IDF não detectado. Defina IDF_PATH antes de executar idf.py build.")
+  endif()
 
-idf_component_register(
-  SRCS
-    main/app_main.cpp
-    main/audio_engine_esp32.cpp
-    main/audio_source.cpp
-    main/parameter_bridge.cpp
-    main/ui_tft.cpp
-    ../../core/src/orbit_delay_core.cpp
-    ../../core/src/orbit_delay_c_api.cpp
-  INCLUDE_DIRS
-    ../../
-)
+  include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+  project(orbit_echo_esp32s3)
+else()
+  message(STATUS "target embedded_esp32s3 deve ser compilado via ESP-IDF (idf.py build).")
+endif()
