@@ -27,11 +27,11 @@ struct AppContext {
     AudioEngineEsp32 audio;
     UiTft ui;
 
-    AudioSourceType sourceType = AudioSourceType::ExternalI2s;
-    AudioSourceType activeSourceType = AudioSourceType::ExternalI2s;
+    AudioSourceType sourceType = AudioSourceType::InternalTest;
+    AudioSourceType activeSourceType = AudioSourceType::InternalTest;
     I2sInputSource externalI2sSource;
     InternalTestTriangleSource internalTestSource;
-    void* activeSource = &externalI2sSource;
+    void* activeSource = &internalTestSource;
 
     float* delayBufferL = nullptr;
     float* delayBufferR = nullptr;
@@ -111,6 +111,7 @@ void audioCallback(void* userData, const int32_t* inInterleaved, int32_t* outInt
     AudioParams params;
     if (app->params.consumeIfUpdated(params)) {
         applyParams(app->core, params);
+        app->sourceType = params.sourceType;
     }
 
     updateActiveSource(app);
@@ -165,6 +166,7 @@ extern "C" void app_main(void) {
     AudioParams initialParams;
     initialParams.readMode = AudioParams::ReadMode::Accidental;
     initialParams.dcBlockEnabled = true;
+    initialParams.sourceType = AudioSourceType::InternalTest;
     app.params.publish(initialParams);
 
     app.internalTestSource.setSampleRate(static_cast<float>(board::audio::kSampleRate));
@@ -173,7 +175,7 @@ extern "C" void app_main(void) {
 
     AudioEngineEsp32::Config audioCfg;
     audioCfg.sampleRate = board::audio::kSampleRate;
-    audioCfg.enableRx = true;
+    audioCfg.enableRx = false;
     audioCfg.enableTx = true;
 
     if (!app.audio.init(audioCfg, audioCallback, &app) || !app.audio.start()) {
