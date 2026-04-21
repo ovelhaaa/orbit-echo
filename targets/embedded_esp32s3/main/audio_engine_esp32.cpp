@@ -37,34 +37,32 @@ bool AudioEngineEsp32::init(const Config& config, AudioCallback callback, void* 
         mode = static_cast<i2s_mode_t>(mode | I2S_MODE_RX);
     }
 
-    const i2s_config_t i2sCfg = {
-        .mode = mode,
-        .sample_rate = config_.sampleRate,
-        .bits_per_sample = static_cast<i2s_bits_per_sample_t>(config_.bitsPerSample),
-        .channel_format = config_.channelFormat,
-        .communication_format = config_.commFormat,
-        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-        .dma_buf_count = config_.dmaBufferCount,
-        .dma_buf_len = config_.dmaBufferFrames,
-        .use_apll = config_.useApll,
-        .tx_desc_auto_clear = true,
-        .fixed_mclk = 0,
-        .mclk_multiple = I2S_MCLK_MULTIPLE_DEFAULT,
-        .bits_per_chan = I2S_BITS_PER_CHAN_DEFAULT,
-    };
+    i2s_config_t i2sCfg{};
+    i2sCfg.mode = mode;
+    i2sCfg.sample_rate = static_cast<uint32_t>(config_.sampleRate);
+    i2sCfg.bits_per_sample = static_cast<i2s_bits_per_sample_t>(config_.bitsPerSample);
+    i2sCfg.channel_format = config_.channelFormat;
+    i2sCfg.communication_format = config_.commFormat;
+    i2sCfg.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
+    i2sCfg.dma_buf_count = config_.dmaBufferCount;
+    i2sCfg.dma_buf_len = config_.dmaBufferFrames;
+    i2sCfg.use_apll = config_.useApll;
+    i2sCfg.tx_desc_auto_clear = true;
+    i2sCfg.fixed_mclk = 0;
+    i2sCfg.mclk_multiple = I2S_MCLK_MULTIPLE_DEFAULT;
+    i2sCfg.bits_per_chan = I2S_BITS_PER_CHAN_DEFAULT;
 
     if (i2s_driver_install(config_.port, &i2sCfg, 0, nullptr) != ESP_OK) {
         ESP_LOGE(kTag, "Falha ao instalar driver I2S");
         return false;
     }
 
-    i2s_pin_config_t pinCfg = {
-        .bck_io_num = config_.bclkGpio,
-        .ws_io_num = config_.wsGpio,
-        .mck_io_num = I2S_PIN_NO_CHANGE,
-        .data_out_num = config_.enableTx ? config_.doutGpio : I2S_PIN_NO_CHANGE,
-        .data_in_num = config_.enableRx ? config_.dinGpio : I2S_PIN_NO_CHANGE,
-    };
+    i2s_pin_config_t pinCfg{};
+    pinCfg.bck_io_num = config_.bclkGpio;
+    pinCfg.ws_io_num = config_.wsGpio;
+    pinCfg.data_out_num = config_.enableTx ? config_.doutGpio : I2S_PIN_NO_CHANGE;
+    pinCfg.data_in_num = config_.enableRx ? config_.dinGpio : I2S_PIN_NO_CHANGE;
+    pinCfg.mck_io_num = I2S_PIN_NO_CHANGE;
 
     if (i2s_set_pin(config_.port, &pinCfg) != ESP_OK) {
         ESP_LOGE(kTag, "Falha ao configurar pinos I2S");
