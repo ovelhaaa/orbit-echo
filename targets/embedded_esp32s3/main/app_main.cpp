@@ -100,6 +100,7 @@ void updateActiveSource(AppContext* app) {
             break;
         case AudioSourceType::ExternalI2s:
         default:
+            app->externalI2sSource.reset();
             app->activeSource = &app->externalI2sSource;
             break;
     }
@@ -170,11 +171,15 @@ extern "C" void app_main(void) {
     app.internalTestSource.setSampleRate(static_cast<float>(board::audio::kSampleRate));
     app.internalTestSource.setFrequencyHz(220.0f);
     app.internalTestSource.setLevel(0.15f);
+    app.externalI2sSource.reset();
 
     AudioEngineEsp32::Config audioCfg;
     audioCfg.sampleRate = board::audio::kSampleRate;
     audioCfg.enableRx = true;
     audioCfg.enableTx = true;
+    audioCfg.mclkGpio = board::audio::i2s::kMclkGpio;
+    audioCfg.fixedMclkHz = board::audio::kSampleRate * 256;
+    audioCfg.useApll = true;
 
     if (!app.audio.init(audioCfg, audioCallback, &app) || !app.audio.start()) {
         ESP_LOGE(kTag, "Falha ao iniciar engine de áudio");
