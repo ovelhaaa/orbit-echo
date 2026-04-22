@@ -17,7 +17,11 @@ constexpr const char* kTag = "audio_engine";
 #endif
 
 #ifndef I2S_BITS_PER_CHAN_DEFAULT
-#define I2S_BITS_PER_CHAN_DEFAULT I2S_BITS_PER_SAMPLE_32BIT
+#if defined(I2S_BITS_PER_CHAN_32BIT)
+#define I2S_BITS_PER_CHAN_DEFAULT I2S_BITS_PER_CHAN_32BIT
+#else
+#define I2S_BITS_PER_CHAN_DEFAULT static_cast<i2s_bits_per_chan_t>(32)
+#endif
 #endif
 }
 
@@ -62,8 +66,13 @@ bool AudioEngineEsp32::init(const Config& config, AudioCallback callback, void* 
     i2sCfg.channel_format = config_.channelFormat;
     i2sCfg.communication_format = config_.commFormat;
     i2sCfg.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
+#if defined(ESP_IDF_VERSION) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+    i2sCfg.dma_desc_num = config_.dmaBufferCount;
+    i2sCfg.dma_frame_num = config_.dmaBufferFrames;
+#else
     i2sCfg.dma_buf_count = config_.dmaBufferCount;
     i2sCfg.dma_buf_len = config_.dmaBufferFrames;
+#endif
     i2sCfg.use_apll = config_.useApll;
     i2sCfg.tx_desc_auto_clear = true;
 #if defined(ESP_IDF_VERSION)
