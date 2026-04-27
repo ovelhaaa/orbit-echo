@@ -37,13 +37,13 @@ constexpr int kBacklightGpio = 40;
 } // namespace tft
 
 namespace encoder {
-constexpr int kA = 4;
-constexpr int kB = 5;
-constexpr int kSwitch = 7;
+constexpr int kA = 14;
+constexpr int kB = 15;
+constexpr int kSwitch = 16;
 } // namespace encoder
 
 namespace controls {
-constexpr int kBypassButton = 14;
+constexpr int kBypassButton = 5;
 } // namespace controls
 
 namespace ui {
