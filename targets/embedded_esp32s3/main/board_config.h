@@ -37,14 +37,33 @@ constexpr int kBacklightGpio = 40;
 } // namespace tft
 
 namespace encoder {
-constexpr int kA = 4;
-constexpr int kB = 5;
-constexpr int kSwitch = 7;
+// Board rev note:
+// Encoder intentionally uses GPIO14/15/16 on the current TFT Feather wiring.
+// This repurposes default JTAG pins and must only be used on hardware revisions
+// that do not require external JTAG and do not populate an external 32kHz crystal
+// on GPIO15/16.
+constexpr int kA = 14;
+constexpr int kB = 15;
+constexpr int kSwitch = 16;
 } // namespace encoder
 
 namespace controls {
-constexpr int kBypassButton = 14;
+constexpr int kBypassButton = 5;
 } // namespace controls
+
+// Guard against accidental overlap with active audio I2S signals.
+static_assert(encoder::kA != audio::i2s::kBclkGpio && encoder::kA != audio::i2s::kLrckGpio &&
+                  encoder::kA != audio::i2s::kDoutGpio && encoder::kA != audio::i2s::kDinGpio &&
+                  encoder::kA != audio::i2s::kMclkGpio,
+              "Encoder GPIO A conflicts with I2S pin mapping.");
+static_assert(encoder::kB != audio::i2s::kBclkGpio && encoder::kB != audio::i2s::kLrckGpio &&
+                  encoder::kB != audio::i2s::kDoutGpio && encoder::kB != audio::i2s::kDinGpio &&
+                  encoder::kB != audio::i2s::kMclkGpio,
+              "Encoder GPIO B conflicts with I2S pin mapping.");
+static_assert(encoder::kSwitch != audio::i2s::kBclkGpio && encoder::kSwitch != audio::i2s::kLrckGpio &&
+                  encoder::kSwitch != audio::i2s::kDoutGpio && encoder::kSwitch != audio::i2s::kDinGpio &&
+                  encoder::kSwitch != audio::i2s::kMclkGpio,
+              "Encoder switch GPIO conflicts with I2S pin mapping.");
 
 namespace ui {
 constexpr uint32_t kRefreshPeriodMs = 33;
