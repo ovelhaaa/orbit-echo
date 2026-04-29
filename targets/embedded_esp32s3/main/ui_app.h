@@ -33,9 +33,12 @@ public:
     bool init(uint8_t* framebuffer) {
         if (!display_.init(framebuffer)) return false;
 
-        encoder_available_ = encoder_.init();
+        encoder_available_ = board::encoder::kPresent;
         if (encoder_available_) {
-            enc_btn_.init();
+            encoder_available_ = encoder_.init();
+            if (encoder_available_) {
+                enc_btn_.init();
+            }
         }
         bypass_btn_.init();
 

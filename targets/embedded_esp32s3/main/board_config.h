@@ -33,7 +33,7 @@ constexpr int kCsGpio = 7;
 
 constexpr int kDcGpio = 39;
 constexpr int kResetGpio = 40;
-constexpr int kBacklightGpio = 45;
+constexpr int kBacklightGpio = 38;
 } // namespace tft
 
 namespace encoder {
@@ -45,6 +45,7 @@ namespace encoder {
 constexpr int kA = 14;
 constexpr int kB = 15;
 constexpr int kSwitch = 16;
+constexpr bool kPresent = false; // Set true on board revisions with populated rotary encoder.
 } // namespace encoder
 
 namespace controls {
