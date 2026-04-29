@@ -121,7 +121,8 @@ public:
         int count = 0;
         pcnt_unit_get_count(unit_, &count);
         int delta = count - last_count_;
-        last_count_ = count;
+        last_count_ = 0;
+        pcnt_unit_clear_count(unit_);
         return delta;
     }
 

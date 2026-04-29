@@ -10,14 +10,30 @@ enum class AudioSourceType : uint8_t {
     InternalTest = 1,
 };
 
+enum class SampleAlign : uint8_t {
+    Left24In32 = 0,
+    Right24In32 = 1,
+    Signed32 = 2,
+};
+
+enum class StereoOrder : uint8_t {
+    LeftRight = 0,
+    RightLeft = 1,
+};
+
 class I2sInputSource {
 public:
+    void setSampleAlign(SampleAlign sampleAlign) { sampleAlign_ = sampleAlign; }
+    void setStereoOrder(StereoOrder stereoOrder) { stereoOrder_ = stereoOrder; }
+
     void prepare(const int32_t* inInterleaved);
     void reset();
     void renderFrame(size_t frameIndex, float& outL, float& outR);
 
 private:
     const int32_t* input_ = nullptr;
+    SampleAlign sampleAlign_ = SampleAlign::Left24In32;
+    StereoOrder stereoOrder_ = StereoOrder::LeftRight;
     float x1L_ = 0.0f;
     float x1R_ = 0.0f;
     float y1L_ = 0.0f;

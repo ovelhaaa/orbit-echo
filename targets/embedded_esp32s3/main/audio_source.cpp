@@ -3,13 +3,20 @@
 namespace orbit::embedded {
 namespace {
 constexpr float kPcm1808Scale24 = 8388608.0f; // 2^23
+constexpr float kPcm1808Scale32 = 2147483648.0f; // 2^31
 constexpr float kDcBlockA = 0.995f;
 
-inline float unpackPcm1808SampleToFloat(int32_t raw) {
-    // PCM1808 costuma chegar em slot de 32 bits com amostra de 24 bits alinhada no topo.
-    // Este packing pode variar por target/driver, por isso está isolado nesta função.
-    const int32_t s24 = raw >> 8;
-    return static_cast<float>(s24) / kPcm1808Scale24;
+inline float unpackPcm1808SampleToFloat(int32_t raw, SampleAlign sampleAlign) {
+    // O packing de entrada pode variar por target/driver; manter configurável.
+    switch (sampleAlign) {
+    case SampleAlign::Left24In32:
+        return static_cast<float>(raw >> 8) / kPcm1808Scale24;
+    case SampleAlign::Right24In32:
+        return static_cast<float>(raw << 8 >> 8) / kPcm1808Scale24;
+    case SampleAlign::Signed32:
+        return static_cast<float>(raw) / kPcm1808Scale32;
+    }
+    return 0.0f;
 }
 } // namespace
 
@@ -31,8 +38,11 @@ void I2sInputSource::renderFrame(size_t frameIndex, float& outL, float& outR) {
         return;
     }
 
-    const float xL = unpackPcm1808SampleToFloat(input_[frameIndex * 2]);
-    const float xR = unpackPcm1808SampleToFloat(input_[frameIndex * 2 + 1]);
+    const size_t leftIndex = (stereoOrder_ == StereoOrder::LeftRight) ? (frameIndex * 2) : (frameIndex * 2 + 1);
+    const size_t rightIndex = (stereoOrder_ == StereoOrder::LeftRight) ? (frameIndex * 2 + 1) : (frameIndex * 2);
+
+    const float xL = unpackPcm1808SampleToFloat(input_[leftIndex], sampleAlign_);
+    const float xR = unpackPcm1808SampleToFloat(input_[rightIndex], sampleAlign_);
 
     // Remove offset DC residual para reduzir acúmulo em caminhos com delay/feedback.
     const float yL = xL - x1L_ + (kDcBlockA * y1L_);
