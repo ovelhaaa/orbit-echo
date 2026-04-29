@@ -27,48 +27,48 @@ public:
         if (!framebuffer_) return false;
 
         // Init SPI bus
-        spi_bus_config_t buscfg = {
-            .mosi_io_num = board::tft::spi::kMosiGpio,
-            .miso_io_num = -1,
-            .sclk_io_num = board::tft::spi::kSclkGpio,
-            .quadwp_io_num = -1,
-            .quadhd_io_num = -1,
-            .max_transfer_sz = (int)kFrameBufferSize,
-            .flags = SPICOMMON_BUSFLAG_MASTER,
-            .intr_flags = 0,
-        };
+        spi_bus_config_t buscfg = {};
+        buscfg.mosi_io_num = board::tft::spi::kMosiGpio;
+        buscfg.miso_io_num = -1;
+        buscfg.sclk_io_num = board::tft::spi::kSclkGpio;
+        buscfg.quadwp_io_num = -1;
+        buscfg.quadhd_io_num = -1;
+        buscfg.data4_io_num = -1;
+        buscfg.data5_io_num = -1;
+        buscfg.data6_io_num = -1;
+        buscfg.data7_io_num = -1;
+        buscfg.max_transfer_sz = (int)kFrameBufferSize;
+        buscfg.flags = SPICOMMON_BUSFLAG_MASTER;
+        buscfg.intr_flags = 0;
+        buscfg.isr_cpu_id = ESP_INTR_CPU_AFFINITY_AUTO;
         ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
         esp_lcd_panel_io_handle_t io_handle = nullptr;
-        esp_lcd_panel_io_spi_config_t io_config = {
-            .cs_gpio_num = board::tft::spi::kCsGpio,
-            .dc_gpio_num = board::tft::kDcGpio,
-            .spi_mode = 0,
-            .pclk_hz = 40 * 1000 * 1000,
-            .trans_queue_depth = 10,
-            .on_color_trans_done = nullptr,
-            .user_ctx = nullptr,
-            .lcd_cmd_bits = 8,
-            .lcd_param_bits = 8,
-            .flags = {
-                .dc_low_on_data = 0,
-                .octal_mode = 0,
-                .sio_mode = 0,
-                .lsb_first = 0,
-                .cs_high_active = 0
-            }
-        };
+        esp_lcd_panel_io_spi_config_t io_config = {};
+        io_config.cs_gpio_num = board::tft::spi::kCsGpio;
+        io_config.dc_gpio_num = board::tft::kDcGpio;
+        io_config.spi_mode = 0;
+        io_config.pclk_hz = 40 * 1000 * 1000;
+        io_config.trans_queue_depth = 10;
+        io_config.on_color_trans_done = nullptr;
+        io_config.user_ctx = nullptr;
+        io_config.lcd_cmd_bits = 8;
+        io_config.lcd_param_bits = 8;
+        io_config.flags.dc_low_on_data = 0;
+        io_config.flags.octal_mode = 0;
+        io_config.flags.quad_mode = 0;
+        io_config.flags.sio_mode = 0;
+        io_config.flags.lsb_first = 0;
+        io_config.flags.cs_high_active = 0;
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)SPI2_HOST, &io_config, &io_handle));
 
-        esp_lcd_panel_dev_config_t panel_config = {
-            .reset_gpio_num = board::tft::kResetGpio,
-            .rgb_endian = LCD_RGB_ENDIAN_RGB,
-            .bits_per_pixel = 16,
-            .flags = {
-                .reset_active_high = 0
-            },
-            .vendor_config = nullptr
-        };
+        esp_lcd_panel_dev_config_t panel_config = {};
+        panel_config.reset_gpio_num = board::tft::kResetGpio;
+        panel_config.rgb_endian = LCD_RGB_ENDIAN_RGB;
+        panel_config.data_endian = LCD_RGB_DATA_ENDIAN_BIG;
+        panel_config.bits_per_pixel = 16;
+        panel_config.flags.reset_active_high = 0;
+        panel_config.vendor_config = nullptr;
         ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle_));
 
         // Power gate for TFT/STEMMA domain on ESP32-S3 TFT Feather
