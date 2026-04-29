@@ -10,4 +10,11 @@ idf_component_register(
   INCLUDE_DIRS
     .
     ../../..
+    ../../../core/include
+  PRIV_REQUIRES
+    driver
+    esp_lcd
+    freertos
 )
+
+target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_17)
