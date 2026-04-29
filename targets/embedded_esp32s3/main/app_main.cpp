@@ -153,7 +153,7 @@ extern "C" void app_main(void) {
                                                             MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
 
     // Scratch da UI usada pelo display: precisa ser DMA-capable em SRAM interna.
-    const size_t fbSize = 240 * 135 * 2;
+    const size_t fbSize = board::tft::kWidth * board::tft::kHeight * 2;
     app.uiScratch = static_cast<uint8_t*>(heap_caps_malloc(fbSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA));
 
     if (!app.delayBufferL || !app.delayBufferR || !app.uiScratch) {
