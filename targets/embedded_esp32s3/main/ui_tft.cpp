@@ -14,7 +14,7 @@ UiTft::~UiTft() {
 }
 
 bool UiTft::start(const Config& config, UiTickCallback callback, void* userData, uint8_t* framebuffer) {
-    if (running_) {
+    if (running_.load(std::memory_order_acquire)) {
         return true;
     }
 
@@ -31,13 +31,13 @@ bool UiTft::start(const Config& config, UiTickCallback callback, void* userData,
         }
     }
 
-    running_ = true;
+    running_.store(true, std::memory_order_release);
 
     BaseType_t ok = xTaskCreatePinnedToCore(taskEntry, "ui_tft_task", config_.stackWords, this,
                                              config_.priority, &taskHandle_, config_.core);
 
     if (ok != pdPASS) {
-        running_ = false;
+        running_.store(false, std::memory_order_release);
         taskHandle_ = nullptr;
         ESP_LOGE(kTag, "Falha ao criar task de UI");
         return false;
@@ -47,7 +47,7 @@ bool UiTft::start(const Config& config, UiTickCallback callback, void* userData,
 }
 
 void UiTft::stop() {
-    if (!running_) {
+    if (!running_.load(std::memory_order_acquire)) {
         if (stoppedSignal_) {
             vSemaphoreDelete(stoppedSignal_);
             stoppedSignal_ = nullptr;
@@ -55,7 +55,7 @@ void UiTft::stop() {
         return;
     }
 
-    running_ = false;
+    running_.store(false, std::memory_order_release);
 
     if (taskHandle_ && stoppedSignal_) {
         xSemaphoreTake(stoppedSignal_, portMAX_DELAY);
@@ -77,7 +77,7 @@ void UiTft::taskLoop() {
     const TickType_t periodTicks = pdMS_TO_TICKS(config_.refreshPeriodMs);
     TickType_t lastWake = xTaskGetTickCount();
 
-    while (running_) {
+    while (running_.load(std::memory_order_acquire)) {
         if (callback_) {
             callback_(userData_);
         }

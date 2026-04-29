@@ -137,15 +137,15 @@ bool AudioEngineEsp32::init(const Config& config, AudioCallback callback, void* 
 }
 
 bool AudioEngineEsp32::start() {
-    if (!initialized_ || running_) {
+    if (!initialized_ || running_.load(std::memory_order_acquire)) {
         return initialized_;
     }
 
-    running_ = true;
+    running_.store(true, std::memory_order_release);
     BaseType_t ok = xTaskCreatePinnedToCore(audioTaskEntry, "audio_i2s_task", config_.taskStackBytes, this,
                                             config_.taskPriority, &taskHandle_, config_.taskCore);
     if (ok != pdPASS) {
-        running_ = false;
+        running_.store(false, std::memory_order_release);
         taskHandle_ = nullptr;
         ESP_LOGE(kTag, "Falha ao criar task de audio");
         return false;
@@ -155,11 +155,11 @@ bool AudioEngineEsp32::start() {
 }
 
 void AudioEngineEsp32::stop() {
-    if (!running_) {
+    if (!running_.load(std::memory_order_acquire)) {
         return;
     }
 
-    running_ = false;
+    running_.store(false, std::memory_order_release);
 
     if (taskHandle_ && stoppedSignal_) {
         xSemaphoreTake(stoppedSignal_, portMAX_DELAY);
@@ -205,7 +205,7 @@ void AudioEngineEsp32::audioTaskEntry(void* ctx) {
 void AudioEngineEsp32::audioTaskLoop() {
     const size_t bytesPerBlock = interleavedSamplesPerBlock_ * sizeof(int32_t);
     uint32_t loopCount = 0;
-    while (running_) {
+    while (running_.load(std::memory_order_acquire)) {
         size_t bytesRead = 0;
         esp_err_t rxErr = ESP_OK;
         if (config_.enableRx) {

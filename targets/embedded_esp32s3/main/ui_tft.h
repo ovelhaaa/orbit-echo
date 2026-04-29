@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
 #include "freertos/FreeRTOS.h"
@@ -37,7 +38,7 @@ private:
     uint8_t* framebuffer_ = nullptr;
     TaskHandle_t taskHandle_ = nullptr;
     SemaphoreHandle_t stoppedSignal_ = nullptr;
-    bool running_ = false;
+    std::atomic_bool running_{false};
 };
 
 } // namespace orbit::embedded

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 
@@ -72,7 +73,7 @@ private:
     mutable portMUX_TYPE statsMux_ = portMUX_INITIALIZER_UNLOCKED;
 
     bool initialized_ = false;
-    bool running_ = false;
+    std::atomic_bool running_{false};
     TaskHandle_t taskHandle_ = nullptr;
     SemaphoreHandle_t stoppedSignal_ = nullptr;
 };

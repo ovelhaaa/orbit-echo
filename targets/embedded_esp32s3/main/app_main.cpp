@@ -21,6 +21,21 @@ constexpr const char* kTag = "orbit_app";
 // 0.5s @ 48kHz: mantém buffers críticos em SRAM interna com margem de heap no ESP32-S3.
 constexpr uint32_t kMaxDelaySamples = 24000;
 
+float* allocateDelayBuffer(size_t samples) {
+    const size_t bytes = sizeof(float) * samples;
+    float* buffer = static_cast<float*>(heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (buffer) {
+        ESP_LOGI(kTag, "Delay buffer alocado em PSRAM (%u bytes)", static_cast<unsigned>(bytes));
+        return buffer;
+    }
+
+    buffer = static_cast<float*>(heap_caps_malloc(bytes, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    if (buffer) {
+        ESP_LOGW(kTag, "Fallback: delay buffer alocado em SRAM interna (%u bytes)", static_cast<unsigned>(bytes));
+    }
+    return buffer;
+}
+
 struct AppContext {
     dsp::OrbitDelayCore core;
     ParameterBridge params;
@@ -146,11 +161,9 @@ extern "C" void app_main(void) {
 
     static AppContext app;
 
-    // Crítico para áudio/DSP: SRAM interna para latência previsível.
-    app.delayBufferL = static_cast<float*>(heap_caps_malloc(sizeof(float) * kMaxDelaySamples,
-                                                            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
-    app.delayBufferR = static_cast<float*>(heap_caps_malloc(sizeof(float) * kMaxDelaySamples,
-                                                            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    // Delay line pode usar PSRAM para reduzir pressão de SRAM interna.
+    app.delayBufferL = allocateDelayBuffer(kMaxDelaySamples);
+    app.delayBufferR = allocateDelayBuffer(kMaxDelaySamples);
 
     // Scratch da UI usada pelo display: precisa ser DMA-capable em SRAM interna.
     const size_t fbSize = board::tft::kWidth * board::tft::kHeight * 2;
