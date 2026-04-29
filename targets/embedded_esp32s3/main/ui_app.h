@@ -33,8 +33,13 @@ public:
     bool init(uint8_t* framebuffer) {
         if (!display_.init(framebuffer)) return false;
 
-        if (!encoder_.init()) return false;
-        enc_btn_.init();
+        encoder_available_ = board::encoder::kPresent;
+        if (encoder_available_) {
+            encoder_available_ = encoder_.init();
+            if (encoder_available_) {
+                enc_btn_.init();
+            }
+        }
         bypass_btn_.init();
 
         // Initialize parameters matching the requested grid layout
@@ -53,7 +58,9 @@ public:
     }
 
     void tick(ParameterBridge& bridge) {
-        enc_btn_.update();
+        if (encoder_available_) {
+            enc_btn_.update();
+        }
         bypass_btn_.update();
 
         if (bypass_btn_.justPressed()) {
@@ -63,13 +70,13 @@ public:
             display_.update();
         }
 
-        if (enc_btn_.justPressed()) {
+        if (encoder_available_ && enc_btn_.justPressed()) {
             mode_ = (mode_ == UiMode::Scroll) ? UiMode::Edit : UiMode::Scroll;
             drawUI();
             display_.update();
         }
 
-        int delta = encoder_.getDelta();
+        int delta = encoder_available_ ? encoder_.getDelta() : 0;
         if (delta != 0) {
             if (mode_ == UiMode::Scroll) {
                 selected_idx_ += delta;
@@ -244,6 +251,7 @@ private:
     int selected_idx_ = 0;
     UiMode mode_ = UiMode::Scroll;
     bool bypassed_ = false;
+    bool encoder_available_ = false;
 };
 
 } // namespace orbit::embedded::ui

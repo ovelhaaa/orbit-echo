@@ -69,6 +69,17 @@ public:
         };
         ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle_));
 
+        // Power gate for TFT/STEMMA domain on ESP32-S3 TFT Feather
+        gpio_config_t tft_power_gpio_config = {
+            .pin_bit_mask = 1ULL << board::tft::kPowerGpio,
+            .mode = GPIO_MODE_OUTPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE,
+        };
+        ESP_ERROR_CHECK(gpio_config(&tft_power_gpio_config));
+        gpio_set_level((gpio_num_t)board::tft::kPowerGpio, 1);
+
         ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle_));
         ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle_));
         // Configurações específicas para ST7789 no TTGO T-Display (ou similar 240x135)
