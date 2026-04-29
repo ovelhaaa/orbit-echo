@@ -46,7 +46,7 @@ namespace encoder {
 constexpr int kA = 14;
 constexpr int kB = 15;
 constexpr int kSwitch = 16;
-constexpr bool kPresent = false; // Set true on board revisions with populated rotary encoder.
+constexpr bool kPresent = true; // Set true on board revisions with populated rotary encoder.
 } // namespace encoder
 
 namespace controls {
