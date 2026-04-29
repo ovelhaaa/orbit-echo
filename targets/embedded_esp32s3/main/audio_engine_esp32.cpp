@@ -204,6 +204,7 @@ void AudioEngineEsp32::audioTaskEntry(void* ctx) {
 
 void AudioEngineEsp32::audioTaskLoop() {
     const size_t bytesPerBlock = interleavedSamplesPerBlock_ * sizeof(int32_t);
+    uint32_t loopCount = 0;
     while (running_) {
         size_t bytesRead = 0;
         esp_err_t rxErr = ESP_OK;
@@ -235,6 +236,9 @@ void AudioEngineEsp32::audioTaskLoop() {
                         ++stats_.txShortWrites;
                         taskEXIT_CRITICAL(&statsMux_);
                     }
+                }
+                if ((++loopCount & 0x3F) == 0) {
+                    vTaskDelay(1);
                 }
                 continue;
             }
@@ -268,6 +272,10 @@ void AudioEngineEsp32::audioTaskLoop() {
                 ++stats_.txShortWrites;
                 taskEXIT_CRITICAL(&statsMux_);
             }
+        }
+
+        if ((++loopCount & 0x3F) == 0) {
+            vTaskDelay(1);
         }
     }
 
