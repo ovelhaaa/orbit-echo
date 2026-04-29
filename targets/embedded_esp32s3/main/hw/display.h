@@ -9,6 +9,8 @@
 #include "driver/spi_master.h"
 #include "../board_config.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 namespace orbit::embedded::hw {
 
@@ -79,6 +81,7 @@ public:
         };
         ESP_ERROR_CHECK(gpio_config(&tft_power_gpio_config));
         gpio_set_level((gpio_num_t)board::tft::kPowerGpio, 1);
+        vTaskDelay(pdMS_TO_TICKS(100));
 
         ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle_));
         ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle_));
