@@ -28,12 +28,12 @@ constexpr uint16_t kHeight = 135;
 namespace spi {
 constexpr int kMosiGpio = 35;
 constexpr int kSclkGpio = 36;
-constexpr int kCsGpio = 37;
+constexpr int kCsGpio = 7;
 } // namespace spi
 
-constexpr int kDcGpio = 38;
-constexpr int kResetGpio = 39;
-constexpr int kBacklightGpio = 40;
+constexpr int kDcGpio = 39;
+constexpr int kResetGpio = 40;
+constexpr int kBacklightGpio = 45;
 } // namespace tft
 
 namespace encoder {
@@ -48,7 +48,7 @@ constexpr int kSwitch = 16;
 } // namespace encoder
 
 namespace controls {
-constexpr int kBypassButton = 5;
+constexpr int kBypassButton = 9;
 } // namespace controls
 
 // Guard against accidental overlap with active audio I2S signals.
