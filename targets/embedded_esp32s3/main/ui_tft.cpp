@@ -33,7 +33,7 @@ bool UiTft::start(const Config& config, UiTickCallback callback, void* userData,
 
     running_.store(true, std::memory_order_release);
 
-    BaseType_t ok = xTaskCreatePinnedToCore(taskEntry, "ui_tft_task", config_.stackWords, this,
+    BaseType_t ok = xTaskCreatePinnedToCore(taskEntry, "ui_tft_task", config_.stackBytes, this,
                                              config_.priority, &taskHandle_, config_.core);
 
     if (ok != pdPASS) {

@@ -26,6 +26,8 @@ public:
         framebuffer_ = buffer;
         if (!framebuffer_) return false;
 
+        auto failIfErr = [](esp_err_t err) { return err == ESP_OK; };
+
         // Init SPI bus
         spi_bus_config_t buscfg = {};
         buscfg.mosi_io_num = board::tft::spi::kMosiGpio;
@@ -41,7 +43,7 @@ public:
         buscfg.flags = SPICOMMON_BUSFLAG_MASTER;
         buscfg.intr_flags = 0;
         buscfg.isr_cpu_id = ESP_INTR_CPU_AFFINITY_AUTO;
-        ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
+        if (!failIfErr(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO))) return false;
 
         esp_lcd_panel_io_handle_t io_handle = nullptr;
         esp_lcd_panel_io_spi_config_t io_config = {};
@@ -60,7 +62,7 @@ public:
         io_config.flags.sio_mode = 0;
         io_config.flags.lsb_first = 0;
         io_config.flags.cs_high_active = 0;
-        ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)SPI2_HOST, &io_config, &io_handle));
+        if (!failIfErr(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)SPI2_HOST, &io_config, &io_handle))) return false;
 
         esp_lcd_panel_dev_config_t panel_config = {};
         panel_config.reset_gpio_num = board::tft::kResetGpio;
@@ -69,7 +71,7 @@ public:
         panel_config.bits_per_pixel = 16;
         panel_config.flags.reset_active_high = 0;
         panel_config.vendor_config = nullptr;
-        ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle_));
+        if (!failIfErr(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle_))) return false;
 
         // Power gate for TFT/STEMMA domain on ESP32-S3 TFT Feather
         gpio_config_t tft_power_gpio_config = {
@@ -79,19 +81,19 @@ public:
             .pull_down_en = GPIO_PULLDOWN_DISABLE,
             .intr_type = GPIO_INTR_DISABLE,
         };
-        ESP_ERROR_CHECK(gpio_config(&tft_power_gpio_config));
+        if (!failIfErr(gpio_config(&tft_power_gpio_config))) return false;
         gpio_set_level((gpio_num_t)board::tft::kPowerGpio, 1);
         vTaskDelay(pdMS_TO_TICKS(100));
 
-        ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle_));
-        ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle_));
+        if (!failIfErr(esp_lcd_panel_reset(panel_handle_))) return false;
+        if (!failIfErr(esp_lcd_panel_init(panel_handle_))) return false;
         // Configurações específicas para ST7789 no TTGO T-Display (ou similar 240x135)
-        ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle_, true));
-        ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle_, true));
-        ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_handle_, false, true));
-        ESP_ERROR_CHECK(esp_lcd_panel_set_gap(panel_handle_, 40, 53)); // Offset comum para 240x135
+        if (!failIfErr(esp_lcd_panel_invert_color(panel_handle_, true))) return false;
+        if (!failIfErr(esp_lcd_panel_swap_xy(panel_handle_, true))) return false;
+        if (!failIfErr(esp_lcd_panel_mirror(panel_handle_, false, true))) return false;
+        if (!failIfErr(esp_lcd_panel_set_gap(panel_handle_, 40, 53))) return false; // Offset comum para 240x135
 
-        ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle_, true));
+        if (!failIfErr(esp_lcd_panel_disp_on_off(panel_handle_, true))) return false;
 
         // Backlight
         gpio_config_t bk_gpio_config = {
@@ -101,7 +103,7 @@ public:
             .pull_down_en = GPIO_PULLDOWN_DISABLE,
             .intr_type = GPIO_INTR_DISABLE,
         };
-        ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
+        if (!failIfErr(gpio_config(&bk_gpio_config))) return false;
         gpio_set_level((gpio_num_t)board::tft::kBacklightGpio, 1);
 
         clear(0x0000);

@@ -186,6 +186,8 @@ extern "C" void app_main(void) {
     app.internalTestSource.setFrequencyHz(220.0f);
     app.internalTestSource.setLevel(0.15f);
     app.externalI2sSource.reset();
+    app.externalI2sSource.setSampleAlign(SampleAlign::Left24In32);
+    app.externalI2sSource.setStereoOrder(StereoOrder::RightLeft);
 
     AudioEngineEsp32::Config audioCfg;
     audioCfg.sampleRate = board::audio::kSampleRate;

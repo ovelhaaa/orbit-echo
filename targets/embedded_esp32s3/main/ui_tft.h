@@ -13,7 +13,7 @@ class UiTft {
 public:
     struct Config {
         uint32_t refreshPeriodMs = 33;
-        uint32_t stackWords = 4096;
+        uint32_t stackBytes = 4096;
         uint32_t priority = 3;
         int core = 1;
     };
