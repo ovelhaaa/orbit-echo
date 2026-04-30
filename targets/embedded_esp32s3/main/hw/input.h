@@ -84,8 +84,8 @@ public:
 
     bool init() {
         pcnt_unit_config_t unit_config = {
-            .low_limit = -32768,
-            .high_limit = 32767,
+            .low_limit = kLowLimit,
+            .high_limit = kHighLimit,
             .flags = {}
         };
 
@@ -120,13 +120,23 @@ public:
     int getDelta() {
         int count = 0;
         pcnt_unit_get_count(unit_, &count);
+
         int delta = count - last_count_;
-        last_count_ = 0;
-        pcnt_unit_clear_count(unit_);
+        if (delta > kHalfRange) {
+            delta -= kFullRange;
+        } else if (delta < -kHalfRange) {
+            delta += kFullRange;
+        }
+
+        last_count_ = count;
         return delta;
     }
 
 private:
+    static constexpr int kLowLimit = -32768;
+    static constexpr int kHighLimit = 32767;
+    static constexpr int kFullRange = (kHighLimit - kLowLimit + 1);
+    static constexpr int kHalfRange = kFullRange / 2;
     int gpio_a_;
     int gpio_b_;
     pcnt_unit_handle_t unit_ = nullptr;
