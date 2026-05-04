@@ -1,50 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 135" width="480" height="270">
-  <defs>
-    <style>
-      .bg { fill: #000; }
-      .line { fill: #333; }
-      .text { fill: #EEE; font-family: monospace; font-size: 8px; }
-      .label { fill: #EEE; font-family: monospace; font-size: 15px; font-weight: 700; }
-      .value { fill: #EEE; font-family: monospace; font-size: 13px; font-weight: 700; }
-      .long { fill: #EEE; font-family: monospace; font-size: 7px; }
-      .editBg { fill: #F00; }
-      .editFg { fill: #000; font-family: monospace; font-weight: 700; }
-      .track { fill: none; stroke: #333; stroke-width: 10; stroke-linecap: round; }
-      .fillBlack { fill: none; stroke: #000; stroke-width: 10; stroke-linecap: round; }
-      .fillRed { fill: none; stroke: #F00; stroke-width: 10; stroke-linecap: round; }
-    </style>
-  </defs>
-  <rect class="bg" width="240" height="135"/>
-
-  <circle cx="8" cy="8" r="5" class="line"/>
-  <text x="16" y="11" class="text">BYPASS</text>
-  <text x="174" y="11" class="text">ORBIT ECHO</text>
+  <defs><style>
+    .bg{fill:#000}.line{fill:#333}.txt{fill:#EEE;font-family:monospace;font-size:8px}
+    .label{fill:#EEE;font-family:monospace;font-size:14px;font-weight:700}
+    .val{fill:#EEE;font-family:monospace;font-size:12px;font-weight:700}
+    .foot{fill:#EEE;font-family:monospace;font-size:7px}
+    .edit{fill:#F00}.red{fill:#F00}
+    .black{fill:#000;font-family:monospace;font-weight:700}
+    .track{fill:none;stroke:#333;stroke-width:8;stroke-linecap:round}
+    .fillR{fill:none;stroke:#F00;stroke-width:8;stroke-linecap:round}
+    .fillB{fill:none;stroke:#000;stroke-width:8;stroke-linecap:round}
+  </style></defs>
+  <rect width="240" height="135" class="bg"/>
+  <circle cx="8" cy="8" r="5" class="red"/><text x="16" y="11" class="txt">ACTIVE</text><text x="174" y="11" class="txt">ORBIT ECHO</text>
   <rect x="0" y="18" width="240" height="1" class="line"/>
+  <rect x="80" y="20" width="80" height="102" class="edit"/>
+  <rect x="80" y="20" width="1" height="102" class="line"/><rect x="160" y="20" width="1" height="102" class="line"/>
 
-  <rect x="0" y="56" width="240" height="37" class="editBg"/>
+  <text x="40" y="42" class="label">DST</text><text x="40" y="56" class="val">2</text><text x="4" y="118" class="foot">DIFUSAO STAGES</text>
 
-  <rect x="0" y="56" width="240" height="1" class="line"/>
-  <rect x="0" y="93" width="240" height="1" class="line"/>
+  <path d="M 88 74 A 14 14 0 1 1 112 62" class="track"/><path d="M 88 74 A 14 14 0 0 1 101 61" class="fillB"/>
+  <text x="120" y="42" class="black" font-size="14">DIF</text><text x="120" y="56" class="black" font-size="12">0.20</text><text x="84" y="118" class="black" font-size="7">QTD DIFUSAO</text>
 
-  <!-- Section 1: DST (value only) -->
-  <text x="56" y="32" class="label">DST</text>
-  <text x="56" y="45" class="value">2</text>
-  <text x="8" y="52" class="long">DIFUSAO STAGES</text>
+  <path d="M 168 74 A 14 14 0 1 1 192 62" class="track"/><path d="M 168 74 A 14 14 0 0 1 178 63" class="fillR"/>
+  <text x="200" y="42" class="label">SPR</text><text x="200" y="56" class="val">0.00</text><text x="164" y="118" class="foot">STEREO SPREAD</text>
 
-  <!-- Section 2: DIF selected in edit (black text/arc over red bg) -->
-  <path d="M 12 80 A 15 15 0 1 1 36 67" class="track"/>
-  <path d="M 12 80 A 15 15 0 0 1 30 68" class="fillBlack"/>
-  <text x="56" y="69" class="editFg" font-size="15">DIF</text>
-  <text x="56" y="82" class="editFg" font-size="13">0.20</text>
-  <text x="8" y="89" class="editFg" font-size="7">QTD DIFUSAO</text>
-
-  <!-- Section 3: SPR -->
-  <path d="M 12 117 A 15 15 0 1 1 36 104" class="track"/>
-  <path d="M 12 117 A 15 15 0 0 1 20 106" class="fillRed"/>
-  <text x="56" y="106" class="label">SPR</text>
-  <text x="56" y="119" class="value">0.00</text>
-  <text x="8" y="126" class="long">STEREO SPREAD</text>
-
-  <rect x="0" y="122" width="240" height="1" class="line"/>
-  <text x="4" y="131" class="text">ENC NAV / PUSH EDIT</text>
+  <rect x="0" y="122" width="240" height="1" class="line"/><text x="4" y="131" class="txt">ENC NAV / PUSH EDIT</text>
 </svg>

@@ -173,16 +173,19 @@ private:
 
         const int paneTop = headerH + 2;
         const int footerTop = hw::Display::kHeight - 12;
-        const int paneH = (footerTop - paneTop) / 3;
+        const int paneH = footerTop - paneTop;
+        const int paneW = hw::Display::kWidth / 3;
         int start = std::clamp(selected_idx_ - 1, 0, (int)params_.size() - 3);
 
         for (int section = 0; section < 3; ++section) {
             int idx = start + section;
-            int y0 = paneTop + section * paneH;
-            int y1 = y0 + paneH - 1;
+            int x0 = section * paneW;
+            int x1 = (section == 2) ? hw::Display::kWidth : x0 + paneW;
+            int innerW = x1 - x0;
             bool selected = idx == selected_idx_;
-            if (section > 0) display_.fillRect(0, y0, hw::Display::kWidth, 1, hw::COLOR_DARK_GRAY);
-            if (selected) display_.fillRect(0, y0, hw::Display::kWidth, paneH, mode_ == UiMode::Edit ? hw::COLOR_RED : hw::COLOR_SELECTED_BG);
+
+            if (section > 0) display_.fillRect(x0, paneTop, 1, paneH, hw::COLOR_DARK_GRAY);
+            if (selected) display_.fillRect(x0 + 1, paneTop, innerW - 1, paneH, mode_ == UiMode::Edit ? hw::COLOR_RED : hw::COLOR_SELECTED_BG);
 
             const MenuParameter& p = params_[idx];
             uint16_t fg = (selected && mode_ == UiMode::Edit) ? hw::COLOR_BLACK : hw::COLOR_TEXT;
@@ -191,13 +194,13 @@ private:
 
             if (p.kind == ParamKind::Arc && !disabled) {
                 float ratio = (p.value - p.minVal) / (p.maxVal - p.minVal);
-                drawArc(24, y0 + (paneH / 2), 15, ratio, selected && mode_ == UiMode::Edit ? hw::COLOR_BLACK : hw::COLOR_RED);
+                drawArc(x0 + 20, paneTop + (paneH / 2) - 4, 14, ratio, selected && mode_ == UiMode::Edit ? hw::COLOR_BLACK : hw::COLOR_RED);
             }
 
             std::string val = valueText(idx);
-            display_.drawText(56, y0 + 5, p.shortName.c_str(), fg);
-            display_.drawText(56, y0 + 18, val.c_str(), fg);
-            display_.drawText(8, y1 - 8, p.longName.c_str(), fg);
+            display_.drawText(x0 + 40, paneTop + 12, p.shortName.c_str(), fg);
+            display_.drawText(x0 + 40, paneTop + 26, val.c_str(), fg);
+            display_.drawText(x0 + 4, footerTop - 4, p.longName.c_str(), fg);
         }
 
         display_.fillRect(0, footerTop - 1, hw::Display::kWidth, 1, hw::COLOR_DARK_GRAY);
