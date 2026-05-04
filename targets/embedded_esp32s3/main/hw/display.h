@@ -255,5 +255,6 @@ constexpr uint16_t COLOR_RED = 0xF800; // Pure Red
 constexpr uint16_t COLOR_DARK_GRAY = 0x3186; // ~ #333333
 constexpr uint16_t COLOR_BORDER = 0x8410; // ~ #888888
 constexpr uint16_t COLOR_TEXT = 0xEF7D; // ~ #EEEEEE
+constexpr uint16_t COLOR_SELECTED_BG = 0x0841; // subtle blue-ish selection background
 
 } // namespace orbit::embedded::hw

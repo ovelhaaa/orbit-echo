@@ -17,6 +17,19 @@ enum class UiMode { Scroll, Edit };
 
 enum class ParamKind { Arc, ValueOnly, Division };
 
+enum ParamIndex : int {
+    kParamMix = 0,
+    kParamFeedback,
+    kParamTempoBpm,
+    kParamDivision,
+    kParamOffset,
+    kParamFocus,
+    kParamDiffStages,
+    kParamDiffAmount,
+    kParamStereoSpread,
+    kParamCount
+};
+
 struct MenuParameter {
     std::string shortName;
     std::string longName;
@@ -86,8 +99,8 @@ public:
         } else {
             MenuParameter& p = params_[selected_idx_];
             p.value = std::clamp(p.value + (delta * p.step), p.minVal, p.maxVal);
-            if (selected_idx_ == 6) p.value = std::round(p.value);      // stages
-            if (selected_idx_ == 3) p.value = std::round(p.value);      // division index
+            if (selected_idx_ == kParamDiffStages) p.value = std::round(p.value);      // stages
+            if (selected_idx_ == kParamDivision) p.value = std::round(p.value);      // division index
             updateBridge(bridge);
         }
 
@@ -99,14 +112,14 @@ private:
     static constexpr const char* kDivisions[6] = {"1/2", "1/4", "1/4.", "1/8", "1/8.", "1/16"};
     static constexpr float kDivisionValues[6] = {2.0f, 1.0f, 1.5f, 0.5f, 0.75f, 0.25f};
 
-    bool isDiffusionAmountEnabled() const { return static_cast<int>(std::round(params_[6].value)) > 0; }
+    bool isDiffusionAmountEnabled() const { return static_cast<int>(std::round(params_[kParamDiffStages].value)) > 0; }
 
     std::string valueText(int idx) const {
         const MenuParameter& p = params_[idx];
         char buf[20];
-        if (idx == 3) return kDivisions[static_cast<int>(std::round(p.value))];
-        if (idx == 6) return static_cast<int>(std::round(p.value)) == 0 ? "OFF" : std::to_string(static_cast<int>(std::round(p.value)));
-        if (idx == 2) {
+        if (idx == kParamDivision) return kDivisions[static_cast<int>(std::round(p.value))];
+        if (idx == kParamDiffStages) return static_cast<int>(std::round(p.value)) == 0 ? "OFF" : std::to_string(static_cast<int>(std::round(p.value)));
+        if (idx == kParamTempoBpm) {
             std::snprintf(buf, sizeof(buf), "%.0f", p.value);
         } else {
             std::snprintf(buf, sizeof(buf), "%.2f", p.value);
@@ -118,33 +131,35 @@ private:
         ratio = std::clamp(ratio, 0.0f, 1.0f);
         const float start = 2.4f;
         const float end = 6.9f;
-        for (int t = 0; t < 10; ++t) {
-            for (int i = 0; i <= 100; ++i) {
-                float p = static_cast<float>(i) / 100.0f;
-                float a = start + (end - start) * p;
-                int x = cx + static_cast<int>(std::cos(a) * (r - t));
-                int y = cy + static_cast<int>(std::sin(a) * (r - t));
-                display_.fillRect(x, y, 1, 1, hw::COLOR_DARK_GRAY);
-                if (p <= ratio) display_.fillRect(x, y, 1, 1, color);
+        for (int i = 0; i <= 100; ++i) {
+            float p = static_cast<float>(i) / 100.0f;
+            float a = start + (end - start) * p;
+            float cosA = std::cos(a);
+            float sinA = std::sin(a);
+            uint16_t drawColor = (p <= ratio) ? color : hw::COLOR_DARK_GRAY;
+            for (int t = 0; t < 10; ++t) {
+                int x = cx + static_cast<int>(cosA * (r - t));
+                int y = cy + static_cast<int>(sinA * (r - t));
+                display_.fillRect(x, y, 1, 1, drawColor);
             }
         }
     }
 
     void updateBridge(ParameterBridge& bridge) {
         AudioParams ap;
-        ap.mix = bypassed_ ? 0.0f : params_[0].value;
-        ap.feedback = params_[1].value;
-        ap.toneHz = params_[5].value;
+        ap.mix = bypassed_ ? 0.0f : params_[kParamMix].value;
+        ap.feedback = params_[kParamFeedback].value;
+        ap.toneHz = params_[kParamFocus].value;
         ap.orbit = 0.5f;
-        ap.stereoSpread = params_[8].value;
-        ap.diffuserStages = static_cast<uint32_t>(std::round(params_[6].value));
-        ap.smearAmount = isDiffusionAmountEnabled() ? params_[7].value : 0.0f;
+        ap.stereoSpread = params_[kParamStereoSpread].value;
+        ap.diffuserStages = static_cast<uint32_t>(std::round(params_[kParamDiffStages].value));
+        ap.smearAmount = isDiffusionAmountEnabled() ? params_[kParamDiffAmount].value : 0.0f;
 
-        float bpm = params_[2].value;
-        int divIdx = static_cast<int>(std::round(params_[3].value));
+        float bpm = params_[kParamTempoBpm].value;
+        int divIdx = static_cast<int>(std::round(params_[kParamDivision].value));
         float noteDivision = kDivisionValues[divIdx];
-        float tempoDelaySamples = (60.0f / bpm) * 48000.0f * noteDivision;
-        ap.offsetSamples = tempoDelaySamples * params_[4].value;
+        float tempoDelaySamples = (60.0f / bpm) * static_cast<float>(board::audio::kSampleRate) * noteDivision;
+        ap.offsetSamples = tempoDelaySamples * params_[kParamOffset].value;
         bridge.publish(ap);
     }
 
@@ -167,11 +182,11 @@ private:
             int y1 = y0 + paneH - 1;
             bool selected = idx == selected_idx_;
             if (section > 0) display_.fillRect(0, y0, hw::Display::kWidth, 1, hw::COLOR_DARK_GRAY);
-            if (selected) display_.fillRect(0, y0, hw::Display::kWidth, paneH, mode_ == UiMode::Edit ? hw::COLOR_RED : 0x0841);
+            if (selected) display_.fillRect(0, y0, hw::Display::kWidth, paneH, mode_ == UiMode::Edit ? hw::COLOR_RED : hw::COLOR_SELECTED_BG);
 
             const MenuParameter& p = params_[idx];
             uint16_t fg = (selected && mode_ == UiMode::Edit) ? hw::COLOR_BLACK : hw::COLOR_TEXT;
-            bool disabled = (idx == 7 && !isDiffusionAmountEnabled());
+            bool disabled = (idx == kParamDiffAmount && !isDiffusionAmountEnabled());
             if (disabled) fg = hw::COLOR_DARK_GRAY;
 
             if (p.kind == ParamKind::Arc && !disabled) {
