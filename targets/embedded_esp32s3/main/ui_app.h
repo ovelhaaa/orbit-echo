@@ -205,13 +205,15 @@ private:
 
             uint16_t fg = (selected && mode_ == UiMode::Edit) ? hw::COLOR_BLACK : hw::COLOR_TEXT;
             float ratio = ratioFor(idx);
-            drawArc(cx, cy, 16, ratio, selected && mode_ == UiMode::Edit ? hw::COLOR_BLACK : hw::COLOR_RED);
+            uint16_t arcFillColor = selected ? hw::COLOR_TEXT : (mode_ == UiMode::Edit ? hw::COLOR_BLACK : hw::COLOR_RED);
+            drawArc(cx, cy, 16, ratio, arcFillColor);
 
             std::string val = valueText(idx);
             const MenuParameter& p = params_[idx];
-            display_.drawText(cx - 10, paneTop + 8, p.shortName.c_str(), fg);
+            display_.drawText(cx - 10, paneTop + 15, p.shortName.c_str(), fg);
             display_.drawText(cx - 14, cy + 18, val.c_str(), fg);
-            display_.drawText(x0 + 4, footerTop - 4, p.longName.c_str(), fg);
+            int longNameWidth = static_cast<int>(p.longName.size()) * 6;
+            display_.drawText(cx - (longNameWidth / 2), footerTop - 9, p.longName.c_str(), fg);
         }
 
         display_.fillRect(0, footerTop - 1, hw::Display::kWidth, 1, hw::COLOR_DARK_GRAY);
