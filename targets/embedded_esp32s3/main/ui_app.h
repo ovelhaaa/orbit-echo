@@ -58,15 +58,15 @@ public:
         bypass_btn_.init();
 
         params_ = {
-            {"MIX", "MIX", 0.35f, 0.0f, 1.0f, 0.05f, ParamKind::Arc},
-            {"FB", "FEEDBACK", 0.35f, 0.0f, 1.0f, 0.05f, ParamKind::Arc},
-            {"TM", "TEMPO BPM", 120.0f, 60.0f, 240.0f, 1.0f, ParamKind::ValueOnly},
-            {"DIV", "DIVISAO", 3.0f, 0.0f, 5.0f, 1.0f, ParamKind::Division},
-            {"OFF", "OFFSET", 0.5f, 0.0f, 1.0f, 0.01f, ParamKind::Arc},
+            {"MIX", "MIX", 35.0f, 0.0f, 100.0f, 1.0f, ParamKind::Arc},
+            {"FBK", "FEEDBACK", 35.0f, 0.0f, 100.0f, 1.0f, ParamKind::Arc},
+            {"BPM", "BPM", 120.0f, 60.0f, 240.0f, 1.0f, ParamKind::Arc},
+            {"DIV", "DIVISION", 3.0f, 0.0f, 5.0f, 1.0f, ParamKind::Division},
+            {"OFF", "OFFSET", 50.0f, 0.0f, 100.0f, 1.0f, ParamKind::Arc},
             {"FOC", "FOCUS", 8000.0f, 1000.0f, 10000.0f, 100.0f, ParamKind::Arc},
-            {"DST", "DIFUSAO STAGES", 2.0f, 0.0f, 2.0f, 1.0f, ParamKind::ValueOnly},
-            {"DIF", "QTD DIFUSAO", 0.2f, 0.0f, 1.0f, 0.05f, ParamKind::Arc},
-            {"SPR", "STEREO SPREAD", 0.0f, 0.0f, 1.0f, 0.05f, ParamKind::Arc},
+            {"DIF", "DIFF STAGES", 2.0f, 0.0f, 2.0f, 1.0f, ParamKind::Arc},
+            {"DFM", "DIFF AMOUNT", 20.0f, 0.0f, 100.0f, 1.0f, ParamKind::Arc},
+            {"SPR", "STEREO SPREAD", 0.0f, 0.0f, 100.0f, 1.0f, ParamKind::Arc},
         };
 
         drawUI();
@@ -121,10 +121,24 @@ private:
         if (idx == kParamDiffStages) return static_cast<int>(std::round(p.value)) == 0 ? "OFF" : std::to_string(static_cast<int>(std::round(p.value)));
         if (idx == kParamTempoBpm) {
             std::snprintf(buf, sizeof(buf), "%.0f", p.value);
-        } else {
-            std::snprintf(buf, sizeof(buf), "%.2f", p.value);
+            return buf;
         }
+        if (idx == kParamMix || idx == kParamFeedback || idx == kParamOffset || idx == kParamDiffAmount || idx == kParamStereoSpread) {
+            std::snprintf(buf, sizeof(buf), "%.0f%%", p.value);
+            return buf;
+        }
+        std::snprintf(buf, sizeof(buf), "%.0f", p.value);
         return buf;
+    }
+
+    float ratioFor(int idx) const {
+        const MenuParameter& p = params_[idx];
+        if (idx == kParamDivision || idx == kParamDiffStages) {
+            int steps = static_cast<int>(p.maxVal - p.minVal);
+            if (steps <= 0) return 0.0f;
+            return std::clamp((std::round(p.value) - p.minVal) / static_cast<float>(steps), 0.0f, 1.0f);
+        }
+        return std::clamp((p.value - p.minVal) / (p.maxVal - p.minVal), 0.0f, 1.0f);
     }
 
     void drawArc(int cx, int cy, int r, float ratio, uint16_t color) {
@@ -147,19 +161,19 @@ private:
 
     void updateBridge(ParameterBridge& bridge) {
         AudioParams ap;
-        ap.mix = bypassed_ ? 0.0f : params_[kParamMix].value;
-        ap.feedback = params_[kParamFeedback].value;
+        ap.mix = bypassed_ ? 0.0f : (params_[kParamMix].value / 100.0f);
+        ap.feedback = params_[kParamFeedback].value / 100.0f;
         ap.toneHz = params_[kParamFocus].value;
         ap.orbit = 0.5f;
-        ap.stereoSpread = params_[kParamStereoSpread].value;
+        ap.stereoSpread = params_[kParamStereoSpread].value / 100.0f;
         ap.diffuserStages = static_cast<uint32_t>(std::round(params_[kParamDiffStages].value));
-        ap.smearAmount = isDiffusionAmountEnabled() ? params_[kParamDiffAmount].value : 0.0f;
+        ap.smearAmount = isDiffusionAmountEnabled() ? (params_[kParamDiffAmount].value / 100.0f) : 0.0f;
 
         float bpm = params_[kParamTempoBpm].value;
         int divIdx = static_cast<int>(std::round(params_[kParamDivision].value));
         float noteDivision = kDivisionValues[divIdx];
         float tempoDelaySamples = (60.0f / bpm) * static_cast<float>(board::audio::kSampleRate) * noteDivision;
-        ap.offsetSamples = tempoDelaySamples * params_[kParamOffset].value;
+        ap.offsetSamples = tempoDelaySamples * (params_[kParamOffset].value / 100.0f);
         bridge.publish(ap);
     }
 
@@ -182,24 +196,21 @@ private:
             int x0 = section * paneW;
             int x1 = (section == 2) ? hw::Display::kWidth : x0 + paneW;
             int innerW = x1 - x0;
+            int cx = x0 + (innerW / 2);
+            int cy = paneTop + (paneH / 2);
             bool selected = idx == selected_idx_;
 
             if (section > 0) display_.fillRect(x0, paneTop, 1, paneH, hw::COLOR_DARK_GRAY);
             if (selected) display_.fillRect(x0 + 1, paneTop, innerW - 1, paneH, mode_ == UiMode::Edit ? hw::COLOR_RED : hw::COLOR_SELECTED_BG);
 
-            const MenuParameter& p = params_[idx];
             uint16_t fg = (selected && mode_ == UiMode::Edit) ? hw::COLOR_BLACK : hw::COLOR_TEXT;
-            bool disabled = (idx == kParamDiffAmount && !isDiffusionAmountEnabled());
-            if (disabled) fg = hw::COLOR_DARK_GRAY;
-
-            if (p.kind == ParamKind::Arc && !disabled) {
-                float ratio = (p.value - p.minVal) / (p.maxVal - p.minVal);
-                drawArc(x0 + 20, paneTop + (paneH / 2) - 4, 14, ratio, selected && mode_ == UiMode::Edit ? hw::COLOR_BLACK : hw::COLOR_RED);
-            }
+            float ratio = ratioFor(idx);
+            drawArc(cx, cy, 16, ratio, selected && mode_ == UiMode::Edit ? hw::COLOR_BLACK : hw::COLOR_RED);
 
             std::string val = valueText(idx);
-            display_.drawText(x0 + 40, paneTop + 12, p.shortName.c_str(), fg);
-            display_.drawText(x0 + 40, paneTop + 26, val.c_str(), fg);
+            const MenuParameter& p = params_[idx];
+            display_.drawText(cx - 10, paneTop + 8, p.shortName.c_str(), fg);
+            display_.drawText(cx - 14, cy + 18, val.c_str(), fg);
             display_.drawText(x0 + 4, footerTop - 4, p.longName.c_str(), fg);
         }
 
