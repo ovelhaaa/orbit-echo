@@ -54,6 +54,10 @@ float computeTempoDelaySamples(float sampleRate, float tempoBpm, float noteDivis
     const float delayMs = beatMs * noteDivision;
     return (delayMs * sampleRate) / 1000.0f;
 }
+
+float wrapUnitParam(float value, float fallback) {
+    return isFiniteSafe(value) ? wrapPosFloat(value, 1.0f, 1.0f) : fallback;
+}
 } // namespace
 
 void OrbitDelayCore::applyPendingParamsIfNeeded() {
@@ -68,6 +72,9 @@ void OrbitDelayCore::applyPendingParamsIfNeeded() {
     const float nextTempoBpm = pendingTempoBpm_.load(std::memory_order_relaxed);
     const float nextNoteDivision = pendingNoteDivision_.load(std::memory_order_relaxed);
     const float nextStereoSpread = pendingStereoSpread_.load(std::memory_order_relaxed);
+    const float nextLfoRateHz = pendingLfoRateHz_.load(std::memory_order_relaxed);
+    const float nextLfoDepthSamples = pendingLfoDepthSamples_.load(std::memory_order_relaxed);
+    const float nextLfoStereoPhaseOffset = pendingLfoStereoPhaseOffset_.load(std::memory_order_relaxed);
     const float nextFeedback = pendingFeedback_.load(std::memory_order_relaxed);
     const float nextFeedbackDrive = pendingFeedbackDrive_.load(std::memory_order_relaxed);
     const float nextFeedbackNonlinearAmount = pendingFeedbackNonlinearAmount_.load(std::memory_order_relaxed);
@@ -116,6 +123,20 @@ void OrbitDelayCore::applyPendingParamsIfNeeded() {
     if (stereoSpread_ != clampedSpread) {
         stereoSpread_ = clampedSpread;
         smoothTargetsChanged = true;
+    }
+    const float clampedLfoRateHz = clampf(sanitizeFinite(nextLfoRateHz, lfoRateHz_), 0.0f, kLfoRateMaxHz);
+    if (lfoRateHz_ != clampedLfoRateHz) {
+        lfoRateHz_ = clampedLfoRateHz;
+        smoothTargetsChanged = true;
+    }
+    const float clampedLfoDepthSamples = clampf(sanitizeFinite(nextLfoDepthSamples, lfoDepthSamples_), 0.0f, kLfoDepthMaxSamples);
+    if (lfoDepthSamples_ != clampedLfoDepthSamples) {
+        lfoDepthSamples_ = clampedLfoDepthSamples;
+        smoothTargetsChanged = true;
+    }
+    const float clampedLfoStereoPhaseOffset = wrapUnitParam(nextLfoStereoPhaseOffset, lfoStereoPhaseOffset_);
+    if (lfoStereoPhaseOffset_ != clampedLfoStereoPhaseOffset) {
+        lfoStereoPhaseOffset_ = clampedLfoStereoPhaseOffset;
     }
     const float clampedFeedback = clampf(sanitizeFinite(nextFeedback, feedback_), 0.0f, 0.95f);
     if (feedback_ != clampedFeedback) {
@@ -221,6 +242,8 @@ void OrbitDelayCore::syncDspParams() {
         tempoDelaySm_.configure(sampleRate_, kSmoothTempoDelayMs);
         smearSm_.configure(sampleRate_, kSmoothSmearMs);
         stereoSpreadSm_.configure(sampleRate_, kSmoothStereoSpreadMs);
+        lfoRateSm_.configure(sampleRate_, kSmoothLfoRateMs);
+        lfoDepthSm_.configure(sampleRate_, kSmoothLfoDepthMs);
         inputGainSm_.configure(sampleRate_, kSmoothGainMs);
         outputGainSm_.configure(sampleRate_, kSmoothGainMs);
         tempoDelaySamples_ = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
@@ -255,6 +278,8 @@ void OrbitDelayCore::updateSmoothedTargetsIfDirty() {
     offsetSm_.setTarget(offsetSamples_);
     tempoDelaySm_.setTarget(tempoDelaySamples_);
     stereoSpreadSm_.setTarget(stereoSpread_);
+    lfoRateSm_.setTarget(lfoRateHz_);
+    lfoDepthSm_.setTarget(lfoDepthSamples_);
     feedbackSm_.setTarget(feedback_);
     feedbackDriveSm_.setTarget(feedbackDrive_);
     feedbackNonlinearAmountSm_.setTarget(feedbackNonlinearAmount_);
@@ -273,6 +298,8 @@ OrbitDelayCore::SmoothedParams OrbitDelayCore::advanceSmoothers() {
     params.offsetSamples = offsetSm_.next();
     params.tempoDelaySamples = tempoDelaySm_.next();
     params.stereoSpread = stereoSpreadSm_.next();
+    params.lfoRateHz = lfoRateSm_.next();
+    params.lfoDepthSamples = lfoDepthSm_.next();
     params.feedback = feedbackSm_.next();
     params.feedbackDrive = feedbackDriveSm_.next();
     params.feedbackNonlinearAmount = feedbackNonlinearAmountSm_.next();
@@ -288,6 +315,12 @@ OrbitDelayCore::SmoothedParams OrbitDelayCore::advanceSmoothers() {
     maybeApplyLowpassCutoff(smoothedToneHz);
     maybeApplyDiffuserAmount(smoothedSmear);
     return params;
+}
+
+float OrbitDelayCore::advanceLfo(ParabolicLfo& lfo, const SmoothedParams& params, float phaseOffset) {
+    lfo.setRateHz(params.lfoRateHz, sampleRate_);
+    lfo.setDepthSamples(params.lfoDepthSamples);
+    return lfo.nextSamples(phaseOffset);
 }
 
 bool OrbitDelayCore::advanceCadence() {
@@ -337,6 +370,10 @@ void OrbitDelayCore::reset(float sampleRate) {
     tempoDelaySamples_ = computeTempoDelaySamples(sampleRate_, tempoBpm_, noteDivision_);
     tempoDelaySm_.reset(tempoDelaySamples_);
     stereoSpreadSm_.reset(stereoSpread_);
+    lfoRateSm_.reset(lfoRateHz_);
+    lfoDepthSm_.reset(lfoDepthSamples_);
+    lfoL_.reset(0.0f);
+    lfoR_.reset(0.0f);
     feedbackSm_.reset(feedback_);
     feedbackDriveSm_.reset(feedbackDrive_);
     feedbackNonlinearAmountSm_.reset(feedbackNonlinearAmount_);
@@ -409,6 +446,21 @@ void OrbitDelayCore::setNoteDivision(float value) {
 
 void OrbitDelayCore::setStereoSpread(float value) {
     pendingStereoSpread_.store(clampf(sanitizeFinite(value, stereoSpread_), 0.0f, kStereoSpreadMax), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
+}
+
+void OrbitDelayCore::setLfoRateHz(float value) {
+    pendingLfoRateHz_.store(clampf(sanitizeFinite(value, lfoRateHz_), 0.0f, kLfoRateMaxHz), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
+}
+
+void OrbitDelayCore::setLfoDepthSamples(float value) {
+    pendingLfoDepthSamples_.store(clampf(sanitizeFinite(value, lfoDepthSamples_), 0.0f, kLfoDepthMaxSamples), std::memory_order_relaxed);
+    pendingParamVersion_.fetch_add(1u, std::memory_order_release);
+}
+
+void OrbitDelayCore::setLfoStereoPhaseOffset(float value) {
+    pendingLfoStereoPhaseOffset_.store(wrapUnitParam(value, lfoStereoPhaseOffset_), std::memory_order_relaxed);
     pendingParamVersion_.fetch_add(1u, std::memory_order_release);
 }
 
@@ -494,12 +546,13 @@ float OrbitDelayCore::processChannelFast(float input,
                                          EnvelopeFollowerLimiter& feedbackLimiter,
                                          const SmoothedParams& params,
                                          float spread,
+                                         float lfoSamples,
                                          float delaySize,
                                          float invDelaySize) {
     const float sanitizedInput = input;
     float wet = 0.0f;
     if (readMode_ == ReadMode::AccidentalReverse) {
-        const float delaySamples = params.tempoDelaySamples + spread;
+        const float delaySamples = params.tempoDelaySamples + spread + lfoSamples;
         float readPosForward = static_cast<float>(delay.writePos) + delaySamples;
         while (readPosForward >= delaySize) {
             readPosForward -= delaySize;
@@ -513,7 +566,7 @@ float OrbitDelayCore::processChannelFast(float input,
         const float readPos = wrapPosFloat(static_cast<float>(writePosInt - delayBack), delaySize, invDelaySize);
         wet = delay.readAbsoluteLinearWrapped(readPos);
     } else {
-        float readPos = params.orbit * static_cast<float>(delay.writePos) + params.offsetSamples + spread;
+        float readPos = params.orbit * static_cast<float>(delay.writePos) + params.offsetSamples + spread + lfoSamples;
         readPos = wrapPosFloat(readPos, delaySize, invDelaySize);
 
 #if defined(ORBIT_DELAY_ENABLE_HERMITE)
@@ -582,7 +635,8 @@ float OrbitDelayCore::processChannel(float input,
 
     const float delaySize = static_cast<float>(delay.size);
     const float invDelaySize = 1.0f / delaySize;
-    return processChannelFast(sanitizedInput, delay, lp, dc, diffuser, feedbackLimiter, params, spread, delaySize, invDelaySize);
+    const float lfoSamples = (&delay == &delayR_) ? advanceLfo(lfoR_, params, lfoStereoPhaseOffset_) : advanceLfo(lfoL_, params);
+    return processChannelFast(sanitizedInput, delay, lp, dc, diffuser, feedbackLimiter, params, spread, lfoSamples, delaySize, invDelaySize);
 }
 
 float OrbitDelayCore::processSampleMono(float input) {
@@ -611,7 +665,7 @@ void OrbitDelayCore::processMono(const float* input, float* output, uint32_t num
     if (!canProcess) {
         for (uint32_t i = 0; i < numSamples; ++i) {
             const SmoothedParams params = advanceSmoothers();
-            (void)params;
+            (void)advanceLfo(lfoL_, params);
             const float sanitizedInput = sanitizeFinite(input[i], 0.0f);
             output[i] = dryPassThrough(sanitizedInput);
         }
@@ -623,7 +677,8 @@ void OrbitDelayCore::processMono(const float* input, float* output, uint32_t num
     for (uint32_t i = 0; i < numSamples; ++i) {
         const SmoothedParams params = advanceSmoothers();
         const float sanitizedInput = sanitizeFinite(input[i], 0.0f);
-        output[i] = processChannelFast(sanitizedInput, delayL_, lowpassL_, dcL_, diffuserL_, feedbackLimiterL_, params, 0.0f, delaySize, invDelaySize);
+        const float lfoSamples = advanceLfo(lfoL_, params);
+        output[i] = processChannelFast(sanitizedInput, delayL_, lowpassL_, dcL_, diffuserL_, feedbackLimiterL_, params, 0.0f, lfoSamples, delaySize, invDelaySize);
     }
 }
 
@@ -646,10 +701,12 @@ void OrbitDelayCore::processStereo(const float* inputL, const float* inputR, flo
             const SmoothedParams params = advanceSmoothers();
             const float inLSafe = sanitizeFinite(inputL[i], 0.0f);
             const float inRSafe = sanitizeFinite(inputR[i], 0.0f);
+            const float lfoSamplesL = advanceLfo(lfoL_, params);
+            const float lfoSamplesR = advanceLfo(lfoR_, params, lfoStereoPhaseOffset_);
             outputL[i] =
-                processChannelFast(inLSafe, delayL_, lowpassL_, dcL_, diffuserL_, feedbackLimiterL_, params, -params.stereoSpread, delaySizeL, invDelaySizeL);
+                processChannelFast(inLSafe, delayL_, lowpassL_, dcL_, diffuserL_, feedbackLimiterL_, params, -params.stereoSpread, lfoSamplesL, delaySizeL, invDelaySizeL);
             outputR[i] =
-                processChannelFast(inRSafe, delayR_, lowpassR_, dcR_, diffuserR_, feedbackLimiterR_, params, params.stereoSpread, delaySizeR, invDelaySizeR);
+                processChannelFast(inRSafe, delayR_, lowpassR_, dcR_, diffuserR_, feedbackLimiterR_, params, params.stereoSpread, lfoSamplesR, delaySizeR, invDelaySizeR);
         }
         return;
     }
@@ -659,8 +716,10 @@ void OrbitDelayCore::processStereo(const float* inputL, const float* inputR, flo
             const SmoothedParams params = advanceSmoothers();
             const float inLSafe = sanitizeFinite(inputL[i], 0.0f);
             const float inRSafe = sanitizeFinite(inputR[i], 0.0f);
+            const float lfoSamplesL = advanceLfo(lfoL_, params);
+            (void)advanceLfo(lfoR_, params, lfoStereoPhaseOffset_);
             outputL[i] =
-                processChannelFast(inLSafe, delayL_, lowpassL_, dcL_, diffuserL_, feedbackLimiterL_, params, -params.stereoSpread, delaySizeL, invDelaySizeL);
+                processChannelFast(inLSafe, delayL_, lowpassL_, dcL_, diffuserL_, feedbackLimiterL_, params, -params.stereoSpread, lfoSamplesL, delaySizeL, invDelaySizeL);
             outputR[i] = dryPassThrough(inRSafe);
         }
         return;
@@ -671,16 +730,19 @@ void OrbitDelayCore::processStereo(const float* inputL, const float* inputR, flo
             const SmoothedParams params = advanceSmoothers();
             const float inLSafe = sanitizeFinite(inputL[i], 0.0f);
             const float inRSafe = sanitizeFinite(inputR[i], 0.0f);
+            (void)advanceLfo(lfoL_, params);
+            const float lfoSamplesR = advanceLfo(lfoR_, params, lfoStereoPhaseOffset_);
             outputL[i] = dryPassThrough(inLSafe);
             outputR[i] =
-                processChannelFast(inRSafe, delayR_, lowpassR_, dcR_, diffuserR_, feedbackLimiterR_, params, params.stereoSpread, delaySizeR, invDelaySizeR);
+                processChannelFast(inRSafe, delayR_, lowpassR_, dcR_, diffuserR_, feedbackLimiterR_, params, params.stereoSpread, lfoSamplesR, delaySizeR, invDelaySizeR);
         }
         return;
     }
 
     for (uint32_t i = 0; i < numSamples; ++i) {
         const SmoothedParams params = advanceSmoothers();
-        (void)params;
+        (void)advanceLfo(lfoL_, params);
+        (void)advanceLfo(lfoR_, params, lfoStereoPhaseOffset_);
         const float inLSafe = sanitizeFinite(inputL[i], 0.0f);
         const float inRSafe = sanitizeFinite(inputR[i], 0.0f);
         outputL[i] = dryPassThrough(inLSafe);

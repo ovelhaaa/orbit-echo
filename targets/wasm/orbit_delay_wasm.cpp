@@ -88,6 +88,9 @@ bool orbit_wasm_set_offset_samples(float value) { return orbit_set_offset_sample
 bool orbit_wasm_set_tempo_bpm(float value) { return orbit_set_tempo_bpm(g_ctx.handle, value); }
 bool orbit_wasm_set_note_division(float value) { return orbit_set_note_division(g_ctx.handle, value); }
 bool orbit_wasm_set_stereo_spread(float value) { return orbit_set_stereo_spread(g_ctx.handle, value); }
+bool orbit_wasm_set_lfo_rate_hz(float value) { return orbit_set_lfo_rate_hz(g_ctx.handle, value); }
+bool orbit_wasm_set_lfo_depth_samples(float value) { return orbit_set_lfo_depth_samples(g_ctx.handle, value); }
+bool orbit_wasm_set_lfo_stereo_phase_offset(float value) { return orbit_set_lfo_stereo_phase_offset(g_ctx.handle, value); }
 bool orbit_wasm_set_feedback(float value) { return orbit_set_feedback(g_ctx.handle, value); }
 bool orbit_wasm_set_mix(float value) { return orbit_set_mix(g_ctx.handle, value); }
 bool orbit_wasm_set_input_gain(float value) { return orbit_set_input_gain(g_ctx.handle, value); }
