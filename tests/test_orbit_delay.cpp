@@ -94,7 +94,7 @@ int main() {
     stereo.setNoteDivision(10.0f);
     stereo.setLfoRateHz(1000.0f);
     stereo.setLfoDepthSamples(1.0e9f);
-    stereo.setLfoStereoPhaseOffset(0.25f);
+    stereo.setLfoStereoPhaseOffset(1.0e30f);
     stereo.setReadMode(OrbitDelayCore::ReadMode::AccidentalReverse);
 
     for (int block = 0; block < 8; ++block) {

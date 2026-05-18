@@ -24,23 +24,18 @@ struct ParabolicLfo {
     }
 
     void setRateHz(float rateHz, float sampleRate) {
-        const float safeRate = clampf(isFiniteSafe(rateHz) ? rateHz : 0.0f, 0.0f, 20.0f);
-        const float safeSampleRate = clampf(isFiniteSafe(sampleRate) ? sampleRate : 48000.0f, 1.0f, 384000.0f);
-        phaseIncrement = safeRate / safeSampleRate;
+        phaseIncrement = rateHz / sampleRate;
     }
 
     void setDepthSamples(float samples) {
-        depthSamples = clampf(isFiniteSafe(samples) ? samples : 0.0f, 0.0f, 20000.0f);
+        depthSamples = samples;
     }
 
-    float nextSamples() {
-        const float value = depthSamples * parabolicBipolar(phase);
+    float nextSamples(float phaseOffset = 0.0f) {
+        const float value = depthSamples * parabolicBipolar(phase + phaseOffset);
         phase += phaseIncrement;
         if (phase >= 1.0f) {
             phase -= static_cast<float>(static_cast<uint32_t>(phase));
-            if (phase >= 1.0f) {
-                phase -= 1.0f;
-            }
         }
         return value;
     }
@@ -60,13 +55,7 @@ private:
         if (!isFiniteSafe(x)) {
             return 0.0f;
         }
-        while (x >= 1.0f) {
-            x -= 1.0f;
-        }
-        while (x < 0.0f) {
-            x += 1.0f;
-        }
-        return x;
+        return wrapPosFloat(x, 1.0f, 1.0f);
     }
 };
 

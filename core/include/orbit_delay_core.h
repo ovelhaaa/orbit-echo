@@ -145,7 +145,7 @@ private:
                              float delaySize,
                              float invDelaySize);
     bool advanceCadence();
-    float advanceLfo(ParabolicLfo& lfo, const SmoothedParams& params);
+    float advanceLfo(ParabolicLfo& lfo, const SmoothedParams& params, float phaseOffset = 0.0f);
 
     float sampleRate_ = kFallbackSampleRate;
     float orbit_ = 0.5f;
