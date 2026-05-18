@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "core/include/dsp_filters.h"
+#include "core/include/dsp_nonlinear.h"
 
 namespace {
 
@@ -19,6 +20,9 @@ int fail(const char* message) {
 int main() {
     using orbit::dsp::DCBlocker;
     using orbit::dsp::BiquadLowpass;
+    using orbit::dsp::EnvelopeFollowerLimiter;
+    using orbit::dsp::processDrivenSoftClipLimiter;
+    using orbit::dsp::softClipPolynomial;
 
     // BiquadLowpass: limites/clamps e estabilidade básica.
     BiquadLowpass lp;
@@ -76,6 +80,23 @@ int main() {
     const float yDecay = dc.process(0.0f);
     if (!std::isfinite(yDecay)) {
         return fail("DCBlocker should remain finite during decay");
+    }
+
+    // Nonlinear feedback helpers: polynomial clip should be odd, finite and bounded.
+    const float clippedPos = softClipPolynomial(4.0f);
+    const float clippedNeg = softClipPolynomial(-4.0f);
+    if (!std::isfinite(clippedPos) || !std::isfinite(clippedNeg) || !nearlyEqual(clippedPos, -clippedNeg, 1.0e-6f) || clippedPos > 1.01f) {
+        return fail("softClipPolynomial should remain finite, odd and bounded");
+    }
+
+    EnvelopeFollowerLimiter limiter;
+    limiter.configure(48000.0f);
+    float limited = 0.0f;
+    for (int i = 0; i < 256; ++i) {
+        limited = processDrivenSoftClipLimiter(2.0f, limiter, 8.0f, 1.0f, 0.25f);
+    }
+    if (!std::isfinite(limited) || std::fabs(limited) >= 2.0f) {
+        return fail("feedback nonlinear limiter should reduce a sustained hot signal");
     }
 
     std::cout << "test_filters: OK\n";
