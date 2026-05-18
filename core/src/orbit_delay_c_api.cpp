@@ -117,6 +117,30 @@ bool orbit_set_stereo_spread(OrbitDelayHandle* handle, float value) {
     return true;
 }
 
+bool orbit_set_lfo_rate_hz(OrbitDelayHandle* handle, float value) {
+    if (handle == nullptr) {
+        return false;
+    }
+    handle->core.setLfoRateHz(value);
+    return true;
+}
+
+bool orbit_set_lfo_depth_samples(OrbitDelayHandle* handle, float value) {
+    if (handle == nullptr) {
+        return false;
+    }
+    handle->core.setLfoDepthSamples(value);
+    return true;
+}
+
+bool orbit_set_lfo_stereo_phase_offset(OrbitDelayHandle* handle, float value) {
+    if (handle == nullptr) {
+        return false;
+    }
+    handle->core.setLfoStereoPhaseOffset(value);
+    return true;
+}
+
 bool orbit_set_feedback(OrbitDelayHandle* handle, float value) {
     if (handle == nullptr) {
         return false;

@@ -6,6 +6,7 @@
 #include "core/include/dsp_delay_line.h"
 #include "core/include/dsp_diffuser.h"
 #include "core/include/dsp_filters.h"
+#include "core/include/dsp_modulation.h"
 #include "core/include/dsp_nonlinear.h"
 #include "core/include/dsp_smoother.h"
 
@@ -28,6 +29,9 @@ public:
     void setTempoBpm(float value);
     void setNoteDivision(float value);
     void setStereoSpread(float value);
+    void setLfoRateHz(float value);
+    void setLfoDepthSamples(float value);
+    void setLfoStereoPhaseOffset(float value);
     void setFeedback(float value);
     void setFeedbackDrive(float value);
     void setFeedbackNonlinearAmount(float value);
@@ -66,6 +70,8 @@ private:
         float offsetSamples = 1200.0f;
         float tempoDelaySamples = 24000.0f;
         float stereoSpread = 0.0f;
+        float lfoRateHz = 0.25f;
+        float lfoDepthSamples = 0.0f;
         float feedback = 0.35f;
         float feedbackDrive = 1.0f;
         float feedbackNonlinearAmount = 0.0f;
@@ -88,6 +94,8 @@ private:
     static constexpr float kFallbackSampleRate = 48000.0f;
     static constexpr uint32_t kMinUsefulDelaySize = 4u;
     static constexpr float kStereoSpreadMax = 20000.0f;
+    static constexpr float kLfoRateMaxHz = 20.0f;
+    static constexpr float kLfoDepthMaxSamples = 20000.0f;
     static constexpr float kMinTempoBpm = 20.0f;
     static constexpr float kMaxTempoBpm = 320.0f;
     static constexpr float kMinNoteDivision = 0.0625f;
@@ -113,6 +121,8 @@ private:
     static constexpr float kSmoothTempoDelayMs = 25.0f;
     static constexpr float kSmoothSmearMs = 35.0f;
     static constexpr float kSmoothStereoSpreadMs = 8.0f;
+    static constexpr float kSmoothLfoRateMs = 50.0f;
+    static constexpr float kSmoothLfoDepthMs = 25.0f;
     static constexpr float kSmoothGainMs = 15.0f;
 
     float processChannel(float input,
@@ -131,9 +141,11 @@ private:
                              EnvelopeFollowerLimiter& feedbackLimiter,
                              const SmoothedParams& params,
                              float spread,
+                             float lfoSamples,
                              float delaySize,
                              float invDelaySize);
     bool advanceCadence();
+    float advanceLfo(ParabolicLfo& lfo, const SmoothedParams& params);
 
     float sampleRate_ = kFallbackSampleRate;
     float orbit_ = 0.5f;
@@ -142,6 +154,9 @@ private:
     float noteDivision_ = 1.0f;
     float tempoDelaySamples_ = 24000.0f;
     float stereoSpread_ = 0.0f;
+    float lfoRateHz_ = 0.25f;
+    float lfoDepthSamples_ = 0.0f;
+    float lfoStereoPhaseOffset_ = 0.25f;
     float feedback_ = 0.35f;
     float feedbackDrive_ = 1.0f;
     float feedbackNonlinearAmount_ = 0.0f;
@@ -179,6 +194,8 @@ private:
     LinearSmoother tempoDelaySm_;
     LinearSmoother smearSm_;
     LinearSmoother stereoSpreadSm_;
+    LinearSmoother lfoRateSm_;
+    LinearSmoother lfoDepthSm_;
     LinearSmoother inputGainSm_;
     LinearSmoother outputGainSm_;
 
@@ -189,6 +206,9 @@ private:
     std::atomic<float> pendingTempoBpm_{120.0f};
     std::atomic<float> pendingNoteDivision_{1.0f};
     std::atomic<float> pendingStereoSpread_{0.0f};
+    std::atomic<float> pendingLfoRateHz_{0.25f};
+    std::atomic<float> pendingLfoDepthSamples_{0.0f};
+    std::atomic<float> pendingLfoStereoPhaseOffset_{0.25f};
     std::atomic<float> pendingFeedback_{0.35f};
     std::atomic<float> pendingFeedbackDrive_{1.0f};
     std::atomic<float> pendingFeedbackNonlinearAmount_{0.0f};
@@ -205,6 +225,9 @@ private:
 
     DelayLine delayL_;
     DelayLine delayR_;
+
+    ParabolicLfo lfoL_;
+    ParabolicLfo lfoR_;
 
     BiquadLowpass lowpassL_;
     BiquadLowpass lowpassR_;

@@ -92,12 +92,62 @@ int main() {
     stereo.setOffsetSamples(-1.0e9f);
     stereo.setTempoBpm(2000.0f);
     stereo.setNoteDivision(10.0f);
+    stereo.setLfoRateHz(1000.0f);
+    stereo.setLfoDepthSamples(1.0e9f);
+    stereo.setLfoStereoPhaseOffset(0.25f);
     stereo.setReadMode(OrbitDelayCore::ReadMode::AccidentalReverse);
 
     for (int block = 0; block < 8; ++block) {
         stereo.processStereo(inL.data(), inR.data(), outL.data(), outR.data(), static_cast<uint32_t>(inL.size()));
         if (!finiteBuffer(outL) || !finiteBuffer(outR)) {
             return fail("stereo processing should remain finite under clamped extremes");
+        }
+    }
+
+
+    // LFO estéreo deve avançar uma vez por canal/amostra no processamento em bloco,
+    // preservando equivalência com o caminho sample-by-sample.
+    OrbitDelayCore blockLfo;
+    OrbitDelayCore sampleLfo;
+    blockLfo.reset(48000.0f);
+    sampleLfo.reset(48000.0f);
+    std::vector<float> blockDelayL(256u, 0.0f);
+    std::vector<float> blockDelayR(256u, 0.0f);
+    std::vector<float> sampleDelayL(256u, 0.0f);
+    std::vector<float> sampleDelayR(256u, 0.0f);
+    if (!blockLfo.attachBuffers(blockDelayL.data(), blockDelayR.data(), static_cast<uint32_t>(blockDelayL.size())) ||
+        !sampleLfo.attachBuffers(sampleDelayL.data(), sampleDelayR.data(), static_cast<uint32_t>(sampleDelayL.size()))) {
+        return fail("LFO stereo attach should succeed");
+    }
+    blockLfo.setOffsetSamples(48.0f);
+    sampleLfo.setOffsetSamples(48.0f);
+    blockLfo.setMix(1.0f);
+    sampleLfo.setMix(1.0f);
+    blockLfo.setLfoRateHz(2.0f);
+    sampleLfo.setLfoRateHz(2.0f);
+    blockLfo.setLfoDepthSamples(8.0f);
+    sampleLfo.setLfoDepthSamples(8.0f);
+    blockLfo.setLfoStereoPhaseOffset(0.25f);
+    sampleLfo.setLfoStereoPhaseOffset(0.25f);
+
+    std::vector<float> lfoInL(96u, 0.0f);
+    std::vector<float> lfoInR(96u, 0.0f);
+    for (uint32_t i = 0; i < lfoInL.size(); ++i) {
+        lfoInL[i] = (i == 0u) ? 1.0f : 0.01f * static_cast<float>(i % 7u);
+        lfoInR[i] = (i == 3u) ? 0.75f : -0.01f * static_cast<float>(i % 5u);
+    }
+    std::vector<float> blockOutL(lfoInL.size(), 0.0f);
+    std::vector<float> blockOutR(lfoInR.size(), 0.0f);
+    std::vector<float> sampleOutL(lfoInL.size(), 0.0f);
+    std::vector<float> sampleOutR(lfoInR.size(), 0.0f);
+    blockLfo.processStereo(lfoInL.data(), lfoInR.data(), blockOutL.data(), blockOutR.data(), static_cast<uint32_t>(lfoInL.size()));
+    for (uint32_t i = 0; i < lfoInL.size(); ++i) {
+        sampleLfo.processSampleStereo(lfoInL[i], lfoInR[i], sampleOutL[i], sampleOutR[i]);
+    }
+    for (uint32_t i = 0; i < lfoInL.size(); ++i) {
+        if (std::fabs(blockOutL[i] - sampleOutL[i]) > 1.0e-6f ||
+            std::fabs(blockOutR[i] - sampleOutR[i]) > 1.0e-6f) {
+            return fail("block stereo LFO should match sample-by-sample LFO advancement");
         }
     }
 
@@ -129,6 +179,8 @@ int main() {
         stereo.setOutputGain(0.25f + 3.5f * (1.0f - t));
         stereo.setToneHz(300.0f + 11700.0f * t);
         stereo.setSmearAmount(t);
+        stereo.setLfoRateHz(0.1f + 4.0f * t);
+        stereo.setLfoDepthSamples(250.0f * t);
         stereo.processStereo(sweepInL.data(), sweepInR.data(), sweepOutL.data(), sweepOutR.data(), kSweepBlock);
         if (!finiteBuffer(sweepOutL) || !finiteBuffer(sweepOutR)) {
             return fail("parameter sweep produced non-finite output");
