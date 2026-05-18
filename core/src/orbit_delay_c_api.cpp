@@ -125,6 +125,30 @@ bool orbit_set_feedback(OrbitDelayHandle* handle, float value) {
     return true;
 }
 
+bool orbit_set_feedback_drive(OrbitDelayHandle* handle, float value) {
+    if (handle == nullptr) {
+        return false;
+    }
+    handle->core.setFeedbackDrive(value);
+    return true;
+}
+
+bool orbit_set_feedback_nonlinear_amount(OrbitDelayHandle* handle, float value) {
+    if (handle == nullptr) {
+        return false;
+    }
+    handle->core.setFeedbackNonlinearAmount(value);
+    return true;
+}
+
+bool orbit_set_feedback_comp_threshold(OrbitDelayHandle* handle, float value) {
+    if (handle == nullptr) {
+        return false;
+    }
+    handle->core.setFeedbackCompThreshold(value);
+    return true;
+}
+
 bool orbit_set_mix(OrbitDelayHandle* handle, float value) {
     if (handle == nullptr) {
         return false;

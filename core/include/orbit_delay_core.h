@@ -6,6 +6,7 @@
 #include "core/include/dsp_delay_line.h"
 #include "core/include/dsp_diffuser.h"
 #include "core/include/dsp_filters.h"
+#include "core/include/dsp_nonlinear.h"
 #include "core/include/dsp_smoother.h"
 
 namespace orbit::dsp {
@@ -28,6 +29,9 @@ public:
     void setNoteDivision(float value);
     void setStereoSpread(float value);
     void setFeedback(float value);
+    void setFeedbackDrive(float value);
+    void setFeedbackNonlinearAmount(float value);
+    void setFeedbackCompThreshold(float value);
     void setMix(float value);
     void setInputGain(float value);
     void setOutputGain(float value);
@@ -63,6 +67,9 @@ private:
         float tempoDelaySamples = 24000.0f;
         float stereoSpread = 0.0f;
         float feedback = 0.35f;
+        float feedbackDrive = 1.0f;
+        float feedbackNonlinearAmount = 0.0f;
+        float feedbackCompThreshold = 1.0f;
         float mix = 0.35f;
         float inputGain = 1.0f;
         float outputGain = 1.0f;
@@ -95,10 +102,11 @@ private:
     // Default smoothing times tuned for MCU targets:
     // - core modulation params: 8-35 ms (zipper-noise suppression with low CPU).
     // - tone/smear controls: 35-50 ms (less frequent expensive coefficient updates).
-    // CPU guideline for MCU use: keep cadence at >=16 samples and avoid >7 smoothers
-    // with per-sample transcendental math in the hot path.
+    // CPU guideline for MCU use: keep cadence at >=16 samples and keep all smoother
+    // math linear; nonlinear envelope coefficients are precomputed outside the hot path.
     static constexpr float kSmoothMixMs = 20.0f;
     static constexpr float kSmoothFeedbackMs = 20.0f;
+    static constexpr float kSmoothFeedbackNonlinearMs = 20.0f;
     static constexpr float kSmoothToneMs = 50.0f;
     static constexpr float kSmoothOrbitMs = 35.0f;
     static constexpr float kSmoothOffsetMs = 25.0f;
@@ -107,10 +115,24 @@ private:
     static constexpr float kSmoothStereoSpreadMs = 8.0f;
     static constexpr float kSmoothGainMs = 15.0f;
 
-    float processChannel(float input, DelayLine& delay, BiquadLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
-                         const SmoothedParams& params, float spread);
-    float processChannelFast(float input, DelayLine& delay, BiquadLowpass& lp, DCBlocker& dc, AllpassDiffuser& diffuser,
-                             const SmoothedParams& params, float spread, float delaySize, float invDelaySize);
+    float processChannel(float input,
+                         DelayLine& delay,
+                         BiquadLowpass& lp,
+                         DCBlocker& dc,
+                         AllpassDiffuser& diffuser,
+                         EnvelopeFollowerLimiter& feedbackLimiter,
+                         const SmoothedParams& params,
+                         float spread);
+    float processChannelFast(float input,
+                             DelayLine& delay,
+                             BiquadLowpass& lp,
+                             DCBlocker& dc,
+                             AllpassDiffuser& diffuser,
+                             EnvelopeFollowerLimiter& feedbackLimiter,
+                             const SmoothedParams& params,
+                             float spread,
+                             float delaySize,
+                             float invDelaySize);
     bool advanceCadence();
 
     float sampleRate_ = kFallbackSampleRate;
@@ -121,6 +143,9 @@ private:
     float tempoDelaySamples_ = 24000.0f;
     float stereoSpread_ = 0.0f;
     float feedback_ = 0.35f;
+    float feedbackDrive_ = 1.0f;
+    float feedbackNonlinearAmount_ = 0.0f;
+    float feedbackCompThreshold_ = 1.0f;
     float mix_ = 0.35f;
     float toneHz_ = 8000.0f;
     float smear_ = 0.0f;
@@ -145,6 +170,9 @@ private:
 
     LinearSmoother mixSm_;
     LinearSmoother feedbackSm_;
+    LinearSmoother feedbackDriveSm_;
+    LinearSmoother feedbackNonlinearAmountSm_;
+    LinearSmoother feedbackCompThresholdSm_;
     LinearSmoother toneSm_;
     LinearSmoother orbitSm_;
     LinearSmoother offsetSm_;
@@ -162,6 +190,9 @@ private:
     std::atomic<float> pendingNoteDivision_{1.0f};
     std::atomic<float> pendingStereoSpread_{0.0f};
     std::atomic<float> pendingFeedback_{0.35f};
+    std::atomic<float> pendingFeedbackDrive_{1.0f};
+    std::atomic<float> pendingFeedbackNonlinearAmount_{0.0f};
+    std::atomic<float> pendingFeedbackCompThreshold_{1.0f};
     std::atomic<float> pendingMix_{0.35f};
     std::atomic<float> pendingInputGain_{1.0f};
     std::atomic<float> pendingOutputGain_{1.0f};
@@ -183,6 +214,9 @@ private:
 
     AllpassDiffuser diffuserL_;
     AllpassDiffuser diffuserR_;
+
+    EnvelopeFollowerLimiter feedbackLimiterL_;
+    EnvelopeFollowerLimiter feedbackLimiterR_;
 };
 
 } // namespace orbit::dsp

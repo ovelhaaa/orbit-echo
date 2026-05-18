@@ -82,6 +82,9 @@ int main() {
 
     // Estabilidade básica com parâmetros extremos (clamps internos).
     stereo.setFeedback(2.0f);
+    stereo.setFeedbackDrive(100.0f);
+    stereo.setFeedbackNonlinearAmount(2.0f);
+    stereo.setFeedbackCompThreshold(-1.0f);
     stereo.setMix(-1.0f);
     stereo.setToneHz(50000.0f);
     stereo.setSmearAmount(-10.0f);
@@ -118,6 +121,9 @@ int main() {
         stereo.setOffsetSamples(-24000.0f + 48000.0f * t);
         stereo.setStereoSpread(10.0f + 5000.0f * t);
         stereo.setFeedback(0.05f + 0.85f * t);
+        stereo.setFeedbackDrive(1.0f + 7.0f * t);
+        stereo.setFeedbackNonlinearAmount(t);
+        stereo.setFeedbackCompThreshold(0.1f + 1.9f * (1.0f - t));
         stereo.setMix(t);
         stereo.setInputGain(0.25f + 3.5f * t);
         stereo.setOutputGain(0.25f + 3.5f * (1.0f - t));
