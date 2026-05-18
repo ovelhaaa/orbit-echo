@@ -12,8 +12,9 @@ inline float softClipPolynomial(float x) {
     }
 
     const float clamped = clampf(x, -1.5f, 1.5f);
+    constexpr float kSoftClipCubicScale = 0.148148148f;
     const float x2 = clamped * clamped;
-    return clamped * (1.0f - (x2 * (1.0f / 6.75f)));
+    return clamped * (1.0f - (x2 * kSoftClipCubicScale));
 }
 
 inline float lowCostLimiterGain(float envelope, float threshold) {
@@ -65,15 +66,14 @@ inline float processDrivenSoftClipLimiter(float input,
         return 0.0f;
     }
 
-    const float mix = clampf(amount, 0.0f, 1.0f);
+    const float mix = amount;
     if (mix <= 0.0f) {
         return input;
     }
 
-    const float safeDrive = clampf(drive, 1.0f, 16.0f);
+    const float safeDrive = drive;
     const float compensated = softClipPolynomial(input * safeDrive) / safeDrive;
-    const float limited = limiter.process(compensated, threshold);
-    const float processed = isFiniteSafe(limited) ? limited : 0.0f;
+    const float processed = limiter.process(compensated, threshold);
     return input + (processed - input) * mix;
 }
 
