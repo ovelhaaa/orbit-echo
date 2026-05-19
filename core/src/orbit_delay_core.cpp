@@ -553,17 +553,7 @@ float OrbitDelayCore::processChannelFast(float input,
     float wet = 0.0f;
     if (readMode_ == ReadMode::AccidentalReverse) {
         const float delaySamples = params.tempoDelaySamples + spread + lfoSamples;
-        float readPosForward = static_cast<float>(delay.writePos) + delaySamples;
-        while (readPosForward >= delaySize) {
-            readPosForward -= delaySize;
-        }
-        while (readPosForward < 0.0f) {
-            readPosForward += delaySize;
-        }
-
-        const int32_t delayBack = static_cast<int32_t>(delaySize) - static_cast<int32_t>(readPosForward);
-        const int32_t writePosInt = static_cast<int32_t>(delay.writePos);
-        const float readPos = wrapPosFloat(static_cast<float>(writePosInt - delayBack), delaySize, invDelaySize);
+        const float readPos = wrapPosFloat(static_cast<float>(delay.writePos) - delaySamples, delaySize, invDelaySize);
         wet = delay.readAbsoluteLinearWrapped(readPos);
     } else {
         float readPos = params.orbit * static_cast<float>(delay.writePos) + params.offsetSamples + spread + lfoSamples;
@@ -616,7 +606,7 @@ float OrbitDelayCore::processChannelFast(float input,
 
     delay.write(toBuffer);
 
-    const float out = (sanitizedInput * (1.0f - params.mix) + wet * params.mix) * params.outputGain;
+    const float out = (sanitizedInput * (1.0f - params.mix) + filteredWet * params.mix) * params.outputGain;
     return isFiniteSafe(out) ? out : 0.0f;
 }
 
