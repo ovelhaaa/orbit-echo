@@ -86,6 +86,7 @@ private:
     void updateSmoothedTargetsIfDirty();
     SmoothedParams advanceSmoothers();
     void maybeApplyLowpassCutoff(float smoothedToneHz);
+    void maybeApplyHighpassCutoff(float targetHighpassHz);
     void maybeApplyDiffuserAmount(float smoothedSmear);
     float feedbackLowpassQ() const;
     static float sanitizeFinite(float value, float fallback);
@@ -103,6 +104,8 @@ private:
     static constexpr uint32_t kHeavyParamCadenceSamples = 16u;
     static constexpr float kLowpassUpdateDeltaHz = 20.0f;
     static constexpr float kDiffuserUpdateDelta = 0.01f;
+    static constexpr float kHighpassCutoffHz = 30.0f;
+    static constexpr float kHighpassUpdateDeltaHz = 1.0f;
     static constexpr float kDefaultFeedbackLowpassQ = 0.707f;
     static constexpr float kReverseLegacyFeedbackLowpassQ = 0.5f;
     static constexpr float kReverseLegacyToneHz = 1800.0f;
@@ -128,6 +131,7 @@ private:
     float processChannel(float input,
                          DelayLine& delay,
                          BiquadLowpass& lp,
+                         BiquadHighpass& hp,
                          DCBlocker& dc,
                          AllpassDiffuser& diffuser,
                          EnvelopeFollowerLimiter& feedbackLimiter,
@@ -136,6 +140,7 @@ private:
     float processChannelFast(float input,
                              DelayLine& delay,
                              BiquadLowpass& lp,
+                             BiquadHighpass& hp,
                              DCBlocker& dc,
                              AllpassDiffuser& diffuser,
                              EnvelopeFollowerLimiter& feedbackLimiter,
@@ -181,6 +186,7 @@ private:
     uint32_t heavyParamCadenceCountdown_ = 1u;
     bool heavyParamCadenceHit_ = false;
     float appliedToneHz_ = 8000.0f;
+    float appliedHighpassHz_ = kHighpassCutoffHz;
     float appliedSmear_ = 0.0f;
 
     LinearSmoother mixSm_;
@@ -231,6 +237,8 @@ private:
 
     BiquadLowpass lowpassL_;
     BiquadLowpass lowpassR_;
+    BiquadHighpass highpassL_;
+    BiquadHighpass highpassR_;
 
     DCBlocker dcL_;
     DCBlocker dcR_;
