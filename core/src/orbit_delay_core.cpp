@@ -552,9 +552,12 @@ float OrbitDelayCore::processChannelFast(float input,
     const float sanitizedInput = input;
     float wet = 0.0f;
     if (readMode_ == ReadMode::AccidentalReverse) {
-        const float delaySamples = params.tempoDelaySamples + spread + lfoSamples;
-        const float readPos = wrapPosFloat(static_cast<float>(delay.writePos) - delaySamples, delaySize, invDelaySize);
+        const float readPos = wrapPosFloat(static_cast<float>(delay.writePos) - params.tempoDelaySamples + spread + lfoSamples, delaySize, invDelaySize);
+#if defined(ORBIT_DELAY_ENABLE_HERMITE)
+        wet = delay.readAbsoluteHermiteWrapped(readPos);
+#else
         wet = delay.readAbsoluteLinearWrapped(readPos);
+#endif
     } else {
         float readPos = params.orbit * static_cast<float>(delay.writePos) + params.offsetSamples + spread + lfoSamples;
         readPos = wrapPosFloat(readPos, delaySize, invDelaySize);
